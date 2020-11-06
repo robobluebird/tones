@@ -88,12 +88,36 @@
         background-color: #AAAAAA;
       }
 
-      table.pattern tr:nth-child(odd) td:hover.on {
+      table.pattern tr:nth-child(odd) td:hover.red {
         background-color: red;
       }
 
-      table.pattern tr:nth-child(even) td:hover.on {
+      table.pattern tr:nth-child(odd) td:hover.blue {
+        background-color: blue;
+      }
+
+      table.pattern tr:nth-child(odd) td:hover.green {
+        background-color: green;
+      }
+
+      table.pattern tr:nth-child(odd) td:hover.orange {
+        background-color: orange;
+      }
+
+      table.pattern tr:nth-child(even) td:hover.red {
         background-color: red;
+      }
+
+      table.pattern tr:nth-child(even) td:hover.blue {
+        background-color: blue;
+      }
+
+      table.pattern tr:nth-child(even) td:hover.green {
+        background-color: green;
+      }
+
+      table.pattern tr:nth-child(even) td:hover.orange {
+        background-color: orange;
       }
     </style>
   </head>
@@ -152,6 +176,8 @@
           forEach(tds, (j, td) => {
             if (data[index][j] === i) {
               td.className = toneClass(tones[index] || 0)
+            } else {
+              td.className = ''
             }
           })
         })
@@ -389,11 +415,11 @@
       let freq = 0
       let samplesPerWave = 0
 
-      for (let i = 0; i < buffer.length; i++) {
-        buffer[i] = 0
+      for (let i = 0; i < buffering.length; i++) {
+        buffering[i] = 0
       }
 
-      data.forEach(beatData => {
+      data.forEach((beatData, chartIndex) => {
         beatData.forEach((noteIndex, beatIndex) => {
           if (noteIndex !== null && noteIndex !== undefined) {
             let bufferPointer = beatIndex * subBufferSize // start of the "16th" subsection
@@ -411,7 +437,19 @@
             samplesPerWave = parseInt(sampleRate / freq)
 
             while (localIndex < subBufferSize) {
-              let sample = triangleSample(waveIndex, samplesPerWave)
+              let sample
+              
+              if (tones[chartIndex] === 0) {
+                sample = squareSample(waveIndex, samplesPerWave)
+              } else if (tones[chartIndex] === 1) {
+                sample = sineSample(waveIndex, samplesPerWave)
+              } else if (tones[chartIndex] === 2) {
+                sample = triangleSample(waveIndex, samplesPerWave)
+              } else if (tones[chartIndex] === 3) {
+                sample = fuzzSample(waveIndex, samplesPerWave)
+              } else {
+                sample = squareSample(waveIndex, samplesPerWave)
+              }
 
               let value = buffering[bufferPointer + localIndex] || 0.0
 
@@ -440,7 +478,7 @@
       return index <= parseInt(samplesPerWave / 2) ? 1.0 : -1.0
     }
 
-    const noiseSample = (index, samplesPerWave) => {
+    const fuzzSample = (index, samplesPerWave) => {
       return index <= parseInt(samplesPerWave / 2) ? Math.random() : Math.random() - 1
     }
 
