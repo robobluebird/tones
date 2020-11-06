@@ -1,0 +1,497 @@
+<html>
+  <head>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: sans-serif;
+      }
+
+      .cont {
+        display: inline-block;
+      }
+
+      .proto {
+        display: none;
+      }
+
+      table.pattern {
+        cursor: pointer;
+      }
+
+      table.pattern td {
+        width: 20px;
+        height: 20px;
+      }
+
+      table.pattern tr:nth-child(odd) td:nth-child(2n) {
+        background-color: #CCCCCC;
+      }
+
+      table.pattern tr:nth-child(odd) td:nth-child(2n+1) {
+        background-color: #EEEEEE;
+      }
+
+      table.pattern tr:nth-child(even) td:nth-child(even) {
+        background-color: #EEEEEE;
+      }
+
+      table.pattern tr:nth-child(even) td:nth-child(odd) {
+        background-color: #CCCCCC;
+      }
+
+      table.pattern tr:nth-child(odd) td.on {
+        background-color: red;
+      }
+
+      table.pattern tr:nth-child(even) td.on {
+        background-color: red;
+      }
+
+      table.pattern tr:nth-child(odd) td.red {
+        background-color: red;
+      }
+
+      table.pattern tr:nth-child(odd) td.blue {
+        background-color: blue;
+      }
+
+      table.pattern tr:nth-child(odd) td.green {
+        background-color: green;
+      }
+
+      table.pattern tr:nth-child(odd) td.orange {
+        background-color: orange;
+      }
+
+      table.pattern tr:nth-child(even) td.red {
+        background-color: red;
+      }
+
+      table.pattern tr:nth-child(even) td.blue {
+        background-color: blue;
+      }
+
+      table.pattern tr:nth-child(even) td.green {
+        background-color: green;
+      }
+
+      table.pattern tr:nth-child(even) td.orange {
+        background-color: orange;
+      }
+
+      table.pattern tr:nth-child(odd) td:hover {
+        background-color: #AAAAAA;
+      }
+
+      table.pattern tr:nth-child(even) td:hover {
+        background-color: #AAAAAA;
+      }
+
+      table.pattern tr:nth-child(odd) td:hover.on {
+        background-color: red;
+      }
+
+      table.pattern tr:nth-child(even) td:hover.on {
+        background-color: red;
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <p class="line" style="display: none;"></p>
+      <button onclick="loop()">loop</button>
+      <button onclick="stop()">stop</button>
+      <button onclick="createChart()">add</button>
+    </div>
+    <div class="cont chartContainer proto">
+      <table>
+        <tr><td>C</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td>B</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td>A#</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td>A</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td>G#</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td>G</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td>F#</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td>F</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td>E</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td>D#</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td>D</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td>C#</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td>C</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      </table>
+      <button class="delete">delete</button>
+      <select class="tone">
+        <option value=0>square</option>
+        <option selected value=1>sine</option>
+        <option value=2>triangle</option>
+        <option value=3>fuzz</option>
+      <select>
+    </div>
+  </body>
+  <script type="text/javascript">
+    const data = []
+    const tones = []
+
+    const forEach = (array, callback, scope) => {
+      for (let i = 0; i < array.length; i++) {
+        callback.call(scope, i, array[i]);
+      }
+    }
+
+    const paintAll = () => {
+      console.log(data)
+
+      data.forEach((chart, index) => {
+        const table = document.querySelector(`#chart${index}`)
+        const trs = table.querySelectorAll(':scope tbody tr')
+
+        forEach(trs, (i, tr) => {
+          const tds = tr.querySelectorAll(':scope td');
+
+          forEach(tds, (j, td) => {
+            if (data[index][j] === i) {
+              td.className = toneClass(tones[index] || 0)
+            }
+          })
+        })
+      })
+    }
+
+    const toneClass = (index) => {
+      switch (index) {
+        case 0:
+          return 'red'
+        case 1:
+          return 'blue'
+        case 2:
+          return 'green'
+        case 3:
+          return 'orange'
+      }
+    }
+
+    const changeTone = (index, e) => {
+      tones[index] = parseInt(e.target.value)
+      history.replaceState(null, '', '?p=' + encodeAll())
+      paintAll()
+      generateTones()
+    }
+
+    const deleteChart = (index) => {
+      document.querySelector(`#container${index}`).remove()
+      data.splice(index, 1)
+      while (index < data.length) {
+        let cont = document.querySelector(`#container${index + 1}`)
+        let tab = cont.querySelector(`#chart${index + 1}`)
+        let del = cont.querySelector('button.delete')
+        let lis = cont.querySelector('select.tone')
+
+        cont.id = `container${index}`
+        tab.id = `chart${index}`
+        del.onclick = () => deleteChart(index)
+        lis.id = `inst${index}`
+        lis.onchange = (e) => changeTone(index, e)
+
+        index++
+      }
+    }
+
+    const createChart = () => {
+      const proto = document.querySelector("div.proto")
+      const body = document.querySelector('body')
+      const chartIndex = data.length
+
+      let chartContainer = proto.cloneNode(true)
+      let chart = chartContainer.querySelector('table')
+      let deleteButton = chartContainer.querySelector('button.delete')
+      let lis = chartContainer.querySelector('select.tone')
+
+      chartContainer.classList.remove('proto')
+      chartContainer.id = `container${chartIndex}`
+      chart.className = 'pattern'
+      chart.id = `chart${chartIndex}`
+      deleteButton.onclick = () => deleteChart(chartIndex)
+      lis.id = `inst${index}`
+      lis.onchange = (e) => changeTone(chartIndex, e)
+      body.insertBefore(chartContainer, proto)
+
+      data[chartIndex] = []
+
+      const trs = chart.querySelectorAll(':scope tr')
+
+      forEach(trs, (rowIndex, tr) => {
+        const tds = tr.querySelectorAll(':scope td')
+
+        forEach(tds, (dataIndex, td) => {
+          td.onclick = (e) => {
+            if (data[chartIndex][dataIndex] === rowIndex) {
+              data[chartIndex][dataIndex] = null
+            } else {
+              data[chartIndex][dataIndex] = rowIndex
+            }
+
+            history.replaceState(null, '', '?p=' + encodeAll())
+            paintAll()
+            generateTones()
+          }
+        })
+      })
+
+      paintAll()
+      generateTones()
+    }
+
+    const createCharts = () => {
+      const proto = document.querySelector("div.proto")
+      const body = document.querySelector('body')
+
+      if (data.length === 0) {
+        data[0] = []
+      }
+
+      data.forEach((data, chartIndex) => {
+        let chartContainer = proto.cloneNode(true)
+        let chart = chartContainer.querySelector('table')
+        let deleteButton = chartContainer.querySelector('button.delete')
+        let lis = chartContainer.querySelector('select.tone')
+
+        chartContainer.classList.remove('proto')
+        chartContainer.id = `container${chartIndex}`
+        chart.className = 'pattern'
+        chart.id = `chart${chartIndex}`
+        deleteButton.onclick = () => deleteChart(chartIndex)
+        lis.id = `inst${chartIndex}`
+        lis.onchange = (e) => changeTone(chartIndex, e)
+        body.insertBefore(chartContainer, proto)
+      })
+    }
+
+    const setInsts = () => {
+      tones.forEach((tone, index) => {
+        let inst = document.querySelector(`#inst${index}`)
+        inst.value = tone
+      })
+    }
+
+    const init = () => {
+      // fetch initial pattern from params and fill data with it
+      const params = (new URL(document.location)).searchParams
+      const patterns = params.get('p')
+      if (!!patterns) {
+        patterns.split(';').forEach((pattern, index) => {
+          data[index] = []
+
+          if (!!pattern) {
+            const rows = pattern.split('-')
+            const tone = parseInt(rows.shift())
+
+            rows.forEach((row) => {
+              const columnAndNote = row.split(',')
+              const columnIndex = parseInt(columnAndNote.shift())
+              const noteIndex = parseInt(columnAndNote[0])
+              data[index][columnIndex] = noteIndex
+              tones[index] = tone
+            })
+          }
+        })
+      }
+
+      createCharts()
+      paintAll()
+      setInsts()
+      generateTones()
+
+      // set info line to current pattern data
+      const line = document.querySelector('.line')
+      line.innerText = data
+
+      const tables = document.querySelectorAll('table')
+
+      forEach(tables, (tableIndex, table) => {
+        const trs = table.querySelectorAll(':scope tr')
+
+        forEach(trs, (rowIndex, tr) => {
+          const tds = tr.querySelectorAll(':scope td')
+
+          forEach(tds, (dataIndex, td) => {
+            td.onclick = (e) => {
+              if (data[tableIndex][dataIndex] === rowIndex) {
+                data[tableIndex][dataIndex] = null
+              } else {
+                data[tableIndex][dataIndex] = rowIndex
+              }
+
+              history.replaceState(null, '', '?p=' + encodeAll())
+              paintAll()
+              generateTones()
+            }
+          })
+        })
+      })
+    }
+
+    const encodeAll = () => {
+      let beatString = '';
+
+      data.forEach((chart, index) => {
+        beatString = beatString.concat(tones[index], '-')
+
+        chart.forEach((noteIndex, index) => {
+          if (noteIndex !== null && noteIndex !== undefined) {
+            beatString = beatString.concat(index, ',', noteIndex, '-')
+          }
+        })
+
+        beatString = beatString.slice(0, -1)
+        beatString = beatString.concat(';')
+      })
+
+      console.log(beatString)
+
+      return beatString.slice(0, -1)
+    }
+
+    const generateNoteFrequency = (multiplier) => {
+      let val = cNote;
+
+      for (let i = 0; i < multiplier; i++) {
+        val = val * toneConstant
+      }
+
+      return parseInt(val)
+    }
+
+    const bpm = 110
+    const toneConstant = 1.059463
+    const cNote = 131
+    const notes = []
+
+    for (let i = 12; i >= 0; i--) {
+      notes[12 - i] = generateNoteFrequency(i)
+    }
+
+    const sampleRate = 44100
+    const beatsPerSecond = bpm / 60.0
+    const secondsPerBeat = 1.0 / beatsPerSecond
+    const seconds = secondsPerBeat * 4
+    const bufferSize = parseInt(seconds * sampleRate)
+    const subBufferSize = parseInt(bufferSize / 16)
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const buffer = audioCtx.createBuffer(1, bufferSize, sampleRate);
+
+    let bufferSource
+
+    const generateTones = () => {
+      let buffering = buffer.getChannelData(0)
+      let carryover = 0
+      let waveIndex = 0
+      let freq = 0
+      let samplesPerWave = 0
+
+      for (let i = 0; i < buffer.length; i++) {
+        buffer[i] = 0
+      }
+
+      data.forEach(beatData => {
+        beatData.forEach((noteIndex, beatIndex) => {
+          if (noteIndex !== null && noteIndex !== undefined) {
+            let bufferPointer = beatIndex * subBufferSize // start of the "16th" subsection
+            let localIndex = 0
+
+            while (carryover > 0) {
+              buffering[bufferPointer + localIndex] = triangleSample(waveIndex, samplesPerWave)
+              localIndex++
+              waveIndex++
+              carryover--
+            }
+
+            waveIndex = 0
+            freq = notes[noteIndex]
+            samplesPerWave = parseInt(sampleRate / freq)
+
+            while (localIndex < subBufferSize) {
+              let sample = triangleSample(waveIndex, samplesPerWave)
+
+              let value = buffering[bufferPointer + localIndex] || 0.0
+
+              value += sample
+
+              if (value > 1.0)
+                value = 1.0
+              else if (value < -1.0)
+                value = -1.0
+
+              buffering[bufferPointer + localIndex] = value
+
+              waveIndex++
+              localIndex++
+
+              if (waveIndex >= samplesPerWave) waveIndex = 0
+            }
+
+            carryover = samplesPerWave - waveIndex
+          }
+        })
+      })
+    }
+
+    const squareSample = (index, samplesPerWave) => {
+      return index <= parseInt(samplesPerWave / 2) ? 1.0 : -1.0
+    }
+
+    const noiseSample = (index, samplesPerWave) => {
+      return index <= parseInt(samplesPerWave / 2) ? Math.random() : Math.random() - 1
+    }
+
+    const triangleSample = (index, samplesPerWave) => {
+      const halfSamples = parseInt(samplesPerWave / 2)
+      const quarterSamples = parseInt(samplesPerWave / 4)
+      const ramp = 1 / quarterSamples
+      
+      if (index <= halfSamples) {
+        if (index <= quarterSamples) {
+          return index * ramp
+        } else {
+          return (halfSamples - index) * ramp
+        }
+      } else {
+        if (index <= halfSamples + quarterSamples) {
+          return -((index - halfSamples) * ramp)
+        } else {
+          return -((samplesPerWave - index) * ramp)
+        }
+      }
+    }
+
+    const sineSample = (index, samplesPerWave) => {
+      return Math.sin(index / (samplesPerWave / (Math.PI * 2)))
+    }
+
+    const play = () => {
+      stop()
+      bufferSource = audioCtx.createBufferSource()
+      bufferSource.connect(audioCtx.destination)
+      bufferSource.buffer = buffer
+      bufferSource.start()
+    }
+
+    const loop = () => {
+      stop()
+      bufferSource = audioCtx.createBufferSource()
+      bufferSource.connect(audioCtx.destination)
+      bufferSource.buffer = buffer
+      bufferSource.loop = true
+      bufferSource.start()
+    }
+
+    const stop = () => {
+      if (!!bufferSource) {
+        try { bufferSource.stop() }
+        catch (e) {}
+      }
+    }
+
+    init()
+  </script>
+</html>
