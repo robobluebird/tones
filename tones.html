@@ -122,11 +122,12 @@
     </style>
   </head>
   <body>
-    <div>
+    <div style="text-align: center">
       <p class="line" style="display: none;"></p>
       <button onclick="loop()">loop</button>
       <button onclick="stop()">stop</button>
       <button onclick="createChart()">add</button>
+      <input type="number" min="40" max="200" onchange="changeTempo()" value="120" />
     </div>
     <div class="cont chartContainer proto">
       <table>
@@ -144,18 +145,100 @@
         <tr><td>C#</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
         <tr><td>C</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
       </table>
-      <button class="delete">delete</button>
+      <button style="float: right;" class="delete">delete</button>
       <select class="tone">
         <option value=0>square</option>
         <option selected value=1>sine</option>
         <option value=2>triangle</option>
         <option value=3>fuzz</option>
       <select>
+      <select class="root">
+        <option selected value="C">C</option>
+        <option value="C#">C#</option>
+        <option value="D">D</option>
+        <option value="D#">D#</option>
+        <option value="E">E</option>
+        <option value="E#">E#</option>
+        <option value="F">F</option>
+        <option value="G">G</option>
+        <option value="G#">G#</option>
+        <option value="A">A</option>
+        <option value="A#">A#</option>
+        <option value="B">B</option>
+      </select>
+      <select class="octave">
+        <option value=1>1</option>
+        <option value=2>2</option>
+        <option value=3>3</option>
+        <option selected value=4>4</option>
+        <option value=5>5</option>
+        <option value=6>6</option>
+        <option value=7>7</option>
+        <option value=8>8</option>
+      </select>
     </div>
   </body>
   <script type="text/javascript">
     const data = []
     const tones = []
+    const noteNamesAndFreqs = {
+      C: 262,
+      'C#': 277,
+      D: 294,
+      'D#': 311,
+      E: 330,
+      F: 349,
+      'F#': 370,
+      G: 392,
+      'G#': 415,
+      A: 440,
+      'A#': 466,
+      B: 494
+    }
+
+    const octave = 4
+    const bpm = 110
+    const toneConstant = 1.059463
+    const notes = []
+    const sampleRate = 44100
+    const beatsPerSecond = bpm / 60.0
+    const secondsPerBeat = 1.0 / beatsPerSecond
+    const seconds = secondsPerBeat * 4
+    const bufferSize = parseInt(seconds * sampleRate)
+    const subBufferSize = parseInt(bufferSize / 16)
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const buffer = audioCtx.createBuffer(1, bufferSize, sampleRate);
+
+    let bufferSource
+    let rootNoteName
+    let rootFreq
+
+    const generateNotes = (startNote) => {
+      const noteNames = Object.keys(noteNamesAndFreqs)
+      let index = noteNames.indexOf(startNote)
+
+      if (index === -1) {
+        return []
+      }
+
+      let names = []
+      let namesIndex = 0
+
+      while (namesIndex <= 12) {
+        if (index > 11) {
+          index = 0
+        }
+
+        names[namesIndex] = noteNames[index]
+
+        index++
+        namesIndex++
+      }
+
+      names[namesIndex] = startNote
+
+      return names
+    }
 
     const forEach = (array, callback, scope) => {
       for (let i = 0; i < array.length; i++) {
@@ -164,8 +247,6 @@
     }
 
     const paintAll = () => {
-      console.log(data)
-
       data.forEach((chart, index) => {
         const table = document.querySelector(`#chart${index}`)
         const trs = table.querySelectorAll(':scope tbody tr')
@@ -204,6 +285,50 @@
       generateTones()
     }
 
+    const changeRoot = (index, e) => {
+      const newNotes = generateNotes(e.target.value)
+
+      const table = document.querySelector(`#chart${index}`)
+      const trs = table.querySelectorAll(':scope tr')
+
+      forEach(trs, (rowIndex, tr) => {
+        const firstTd = tr.querySelector('td')
+
+        if (rowIndex < newNotes.length) {
+          firstTd.innerText = newNotes[rowIndex]
+        } else {
+          firstTd.innerText = newNotes[0]
+        }
+      })
+
+      let octaveShift = Math.pow(toneConstant, 12)
+      let octaveShiftCount = 0
+      if (octave < 4) {
+        octaveShift = 1 / Math.pow(toneConstant, 12)
+        octaveShiftCount = 4 - octave
+      } else if (octave > 4) {
+        octaveShiftCount = octave - 4
+      }
+
+      let rootValue = noteNamesAndFreqs[e.target.value]
+      for (let i = 0; i < octaveShiftCount; i++) {
+        rootValue = rootValue * octaveShift 
+      }
+
+      console.log("bloop", rootValue)
+
+      notes[12] = rootValue
+
+      for (let i = 12; i >= 0; i--) {
+        notes[12 - i] = generateNoteFrequency(i, rootValue)
+      }
+
+      console.log("bleep", notes)
+
+      paintAll()
+      generateTones()
+    }
+
     const deleteChart = (index) => {
       document.querySelector(`#container${index}`).remove()
       data.splice(index, 1)
@@ -212,12 +337,15 @@
         let tab = cont.querySelector(`#chart${index + 1}`)
         let del = cont.querySelector('button.delete')
         let lis = cont.querySelector('select.tone')
+        let roo = cont.querySelector('select.root')
 
         cont.id = `container${index}`
         tab.id = `chart${index}`
         del.onclick = () => deleteChart(index)
         lis.id = `inst${index}`
         lis.onchange = (e) => changeTone(index, e)
+        roo.id = `root${index}`
+        roo.onchange = (e) => changeRoot(index, e)
 
         index++
       }
@@ -232,6 +360,7 @@
       let chart = chartContainer.querySelector('table')
       let deleteButton = chartContainer.querySelector('button.delete')
       let lis = chartContainer.querySelector('select.tone')
+      let roo = chartContainer.querySelector('select.root')
 
       chartContainer.classList.remove('proto')
       chartContainer.id = `container${chartIndex}`
@@ -240,6 +369,9 @@
       deleteButton.onclick = () => deleteChart(chartIndex)
       lis.id = `inst${index}`
       lis.onchange = (e) => changeTone(chartIndex, e)
+      roo.id = `root${chartIndex}`
+      roo.onchange = (e) => changeRoot(chartIndex, e)
+
       body.insertBefore(chartContainer, proto)
 
       data[chartIndex] = []
@@ -281,6 +413,7 @@
         let chart = chartContainer.querySelector('table')
         let deleteButton = chartContainer.querySelector('button.delete')
         let lis = chartContainer.querySelector('select.tone')
+        let roo = chartContainer.querySelector('select.root')
 
         chartContainer.classList.remove('proto')
         chartContainer.id = `container${chartIndex}`
@@ -289,6 +422,9 @@
         deleteButton.onclick = () => deleteChart(chartIndex)
         lis.id = `inst${chartIndex}`
         lis.onchange = (e) => changeTone(chartIndex, e)
+        roo.id = `root${chartIndex}`
+        roo.onchange = (e) => changeRoot(chartIndex, e)
+
         body.insertBefore(chartContainer, proto)
       })
     }
@@ -373,13 +509,11 @@
         beatString = beatString.concat(';')
       })
 
-      console.log(beatString)
-
       return beatString.slice(0, -1)
     }
 
-    const generateNoteFrequency = (multiplier) => {
-      let val = cNote;
+    const generateNoteFrequency = (multiplier, root) => {
+      let val = root || noteNamesAndFreqs['C'];
 
       for (let i = 0; i < multiplier; i++) {
         val = val * toneConstant
@@ -388,25 +522,9 @@
       return parseInt(val)
     }
 
-    const bpm = 110
-    const toneConstant = 1.059463
-    const cNote = 131
-    const notes = []
-
     for (let i = 12; i >= 0; i--) {
       notes[12 - i] = generateNoteFrequency(i)
     }
-
-    const sampleRate = 44100
-    const beatsPerSecond = bpm / 60.0
-    const secondsPerBeat = 1.0 / beatsPerSecond
-    const seconds = secondsPerBeat * 4
-    const bufferSize = parseInt(seconds * sampleRate)
-    const subBufferSize = parseInt(bufferSize / 16)
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const buffer = audioCtx.createBuffer(1, bufferSize, sampleRate);
-
-    let bufferSource
 
     const generateTones = () => {
       let buffering = buffer.getChannelData(0)
@@ -472,10 +590,25 @@
           }
         })
       })
+
+      // massage beginning and end
+      // const lead = 100
+      // const ins = buffering[lead]
+      // const inStep = ins / lead 
+      // const out = buffering[buffering.length - 1001]
+      // const outStep = out / lead
+
+      // for (let i = 0; i < lead; i++) {
+      //   buffering[i] = i * inStep
+      // }
+
+      // for (let i = buffering.length - (lead + 1); i < buffering.length; i++) {
+      //   buffering[i] = (lead - i) * outStep
+      // }
     }
 
     const squareSample = (index, samplesPerWave) => {
-      return index <= parseInt(samplesPerWave / 2) ? 1.0 : -1.0
+      return index <= parseInt(samplesPerWave / 2) ? 0.8 : -0.8
     }
 
     const fuzzSample = (index, samplesPerWave) => {
