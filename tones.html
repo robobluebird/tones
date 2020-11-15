@@ -418,7 +418,7 @@
       chart.className = 'pattern'
       chart.id = `chart${chartIndex}`
       deleteButton.onclick = () => deleteChart(chartIndex)
-      lis.id = `inst${index}`
+      lis.id = `inst${chartIndex}`
       lis.onchange = (e) => changeTone(chartIndex, e)
       roo.id = `root${chartIndex}`
       roo.onchange = (e) => changeRoot(chartIndex, e)
@@ -429,6 +429,15 @@
       body.insertBefore(chartContainer, proto)
 
       data[chartIndex] = []
+      tones[chartIndex] = 1
+      rootNotes[chartIndex] = 'C'
+      octaves[chartIndex] = 3
+      generateNotes(chartIndex)
+      paintAll()
+      setInsts()
+      setRoots()
+      setOctaves()
+      generateTones()
 
       const trs = chart.querySelectorAll(':scope tr')
 
@@ -515,28 +524,38 @@
       if (!!patternsParam) {
         const patterns = patternsParam.split(';')
 
-        bpm = parseInt(patterns.shift())
+        bpm = parseInt(patterns.shift(), 16)
 
         patterns.forEach((pattern, index) => {
           data[index] = []
 
           if (!!pattern) {
             const rows = pattern.split('-')
-            const tone = parseInt(rows.shift())
-            const rootNote = rows.shift().replace('S', '#')
-            const octave = parseInt(rows.shift())
+
+            // no longer split on dash, now do positional math!!!
+
+            const tone = parseInt(pattern[0])
+            const rootNote = Object.keys(noteNamesAndFreqs)[parseInt(pattern[1], 16)]
+            const octave = parseInt(pattern[2])
 
             tones[index] = tone
             rootNotes[index] = rootNote
             octaves[index] = octave
             generateNotes(index)
 
-            if (rows.length) {
-              rows.forEach((row) => {
-                const columnIndex = parseInt(row[0], 16)
-                const noteIndex = parseInt(row[1], 16)
-                data[index][columnIndex] = noteIndex
-              })
+            if (pattern.length > 3) {
+              pattern.slice(3)
+                .split('')
+                .reduce((result, value, i, array) => {
+                  if (i % 2 === 0)
+                    result.push(array.slice(i, i + 2))
+                  return result
+                }, [])
+                .forEach((row) => {
+                  const columnIndex = parseInt(row[0], 16)
+                  const noteIndex = parseInt(row[1], 16)
+                  data[index][columnIndex] = noteIndex
+                })
             }
           }
         })
@@ -544,7 +563,7 @@
         tones[0] = 1
         rootNotes[0] = 'C'
         octaves[0] = 3
-        generateNotes(index)
+        generateNotes(0)
       }
 
       createCharts()
@@ -593,26 +612,19 @@
     const encodeAll = () => {
       let beatString = '';
 
-      beatString = beatString.concat(bpm, ';')
-
-      // initialArray.reduce(function(result, value, index, array) {
-      //   if (index % 2 === 0)
-      //     result.push(array.slice(index, index + 2));
-      //   return result;
-      // }, []);
+      beatString = beatString.concat(bpm.toString(16).toUpperCase().padStart(2, '0'), ';')
 
       data.forEach((chart, index) => {
-        beatString = beatString.concat(tones[index], '-')
-        beatString = beatString.concat(rootNotes[index].replace('#', 'S'), '-')
-        beatString = beatString.concat(octaves[index], '-')
+        beatString = beatString.concat(tones[index])
+        beatString = beatString.concat(Object.keys(noteNamesAndFreqs).indexOf(rootNotes[index]).toString(16))
+        beatString = beatString.concat(octaves[index])
 
         chart.forEach((noteIndex, index) => {
           if (noteIndex !== null && noteIndex !== undefined) {
-            beatString = beatString.concat(index.toString(16).toUpperCase(), noteIndex.toString(16).toUpperCase(), '-')
+            beatString = beatString.concat(index.toString(16).toUpperCase(), noteIndex.toString(16).toUpperCase())
           }
         })
 
-        beatString = beatString.slice(0, -1)
         beatString = beatString.concat(';')
       })
 
@@ -629,6 +641,21 @@
       return parseInt(val)
     }
 
+    const waveFunction = (i) => {
+      switch (i) {
+        case 0:
+          return squareSample
+        case 1:
+          return sineSample
+        case 2:
+          return triangleSample
+        case 3:
+          return fuzzSample
+        default:
+          return squareSample
+      }
+    }
+
     const generateTones = () => {
       let buffering = buffer.getChannelData(0)
       let carryover = 0
@@ -641,16 +668,20 @@
       }
 
       data.forEach((beatData, chartIndex) => {
+        let lastIndex = -1
+
         beatData.forEach((noteIndex, beatIndex) => {
           if (noteIndex !== null && noteIndex !== undefined) {
             let bufferPointer = beatIndex * subBufferSize // start of the "16th" subsection
             let localIndex = 0
 
-            while (carryover > 0) {
-              buffering[bufferPointer + localIndex] = triangleSample(waveIndex, samplesPerWave)
-              localIndex++
-              waveIndex++
-              carryover--
+            if (lastIndex === beatIndex - 1) {
+              while (carryover > 0) {
+                buffering[bufferPointer + localIndex] = waveFunction(tones[chartIndex])(waveIndex, samplesPerWave)
+                localIndex++
+                waveIndex++
+                carryover--
+              }
             }
 
             waveIndex = 0
@@ -658,20 +689,7 @@
             samplesPerWave = parseInt(sampleRate / freq)
 
             while (localIndex < subBufferSize) {
-              let sample
-              
-              if (tones[chartIndex] === 0) {
-                sample = squareSample(waveIndex, samplesPerWave)
-              } else if (tones[chartIndex] === 1) {
-                sample = sineSample(waveIndex, samplesPerWave)
-              } else if (tones[chartIndex] === 2) {
-                sample = triangleSample(waveIndex, samplesPerWave)
-              } else if (tones[chartIndex] === 3) {
-                sample = fuzzSample(waveIndex, samplesPerWave)
-              } else {
-                sample = squareSample(waveIndex, samplesPerWave)
-              }
-
+              const sample = waveFunction(tones[chartIndex])(waveIndex, samplesPerWave)
               let value = buffering[bufferPointer + localIndex] || 0.0
 
               value += sample
@@ -685,6 +703,7 @@
 
               waveIndex++
               localIndex++
+              lastIndex = beatIndex
 
               if (waveIndex >= samplesPerWave) waveIndex = 0
             }
