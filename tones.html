@@ -7,6 +7,22 @@
         font-family: sans-serif;
       }
 
+      .add {
+        height: 310px;
+        width: 388px;
+        font-size: 100px;
+        margin: auto;
+        display: inline-block;
+        text-align: center;
+        vertical-align: top;
+        line-height: 310px;
+        cursor: pointer;
+      }
+
+      .add:hover {
+        background-color: lightgray;
+      }
+
       .cont {
         display: inline-block;
       }
@@ -52,6 +68,10 @@
         background-color: red;
       }
 
+      table.pattern tr:nth-child(odd) td.purple {
+        background-color: purple;
+      }
+
       table.pattern tr:nth-child(odd) td.blue {
         background-color: blue;
       }
@@ -66,6 +86,10 @@
 
       table.pattern tr:nth-child(even) td.red {
         background-color: red;
+      }
+
+      table.pattern tr:nth-child(even) td.purple {
+        background-color: purple;
       }
 
       table.pattern tr:nth-child(even) td.blue {
@@ -92,6 +116,10 @@
         background-color: red;
       }
 
+      table.pattern tr:nth-child(odd) td:hover.purple {
+        background-color: purple;
+      }
+
       table.pattern tr:nth-child(odd) td:hover.blue {
         background-color: blue;
       }
@@ -106,6 +134,10 @@
 
       table.pattern tr:nth-child(even) td:hover.red {
         background-color: red;
+      }
+
+      table.pattern tr:nth-child(even) td:hover.purple {
+        background-color: purple;
       }
 
       table.pattern tr:nth-child(even) td:hover.blue {
@@ -151,6 +183,7 @@
         <option selected value=1>sine</option>
         <option value=2>triangle</option>
         <option value=3>fuzz</option>
+        <option value=4>noise</option>
       <select>
       <select class="root">
         <option selected value="C">C</option>
@@ -158,7 +191,6 @@
         <option value="D">D</option>
         <option value="D#">D#</option>
         <option value="E">E</option>
-        <option value="E#">E#</option>
         <option value="F">F</option>
         <option value="G">G</option>
         <option value="G#">G#</option>
@@ -177,11 +209,12 @@
         <option value=8>8</option>
       </select>
     </div>
+    <div class="add">+</div>
   </body>
   <script type="text/javascript">
     const toneConstant = 1.059463
     const notes = []
-    const sampleRate = 44100
+    const sampleRate = 22050
     const data = []
     const tones = []
     const rootNotes = []
@@ -274,6 +307,8 @@
           return 'green'
         case 3:
           return 'orange'
+        case 4:
+          return 'purple'
       }
     }
 
@@ -304,14 +339,16 @@
       history.replaceState(null, '', '?p=' + encodeAll())
     }
 
-    const changeTone = (index, e) => {
+    const changeTone = (e) => {
+      const index = parseInt(e.target.id.slice(4))
       tones[index] = parseInt(e.target.value)
       history.replaceState(null, '', '?p=' + encodeAll())
       paintAll()
       generateTones()
     }
 
-    const changeOctave = (index, e) => {
+    const changeOctave = (e) => {
+      const index = parseInt(e.target.id.slice(6))
       octaves[index] = parseInt(e.target.value)
       history.replaceState(null, '', '?p=' + encodeAll())
       generateNotes(index)
@@ -335,8 +372,11 @@
       })
     }
 
-    const changeRoot = (index, e) => {
+    const changeRoot = (e) => {
       const note = e.target.value
+      const index = parseInt(e.target.id.slice(4))
+
+      console.log("can man", index, note)
 
       setNoteText(index, note)
       rootNotes[index] = note
@@ -370,14 +410,20 @@
       }
     }
 
-    const deleteChart = (index) => {
+    const deleteChart = (e) => {
       if (data.length <= 1) {
         return
       }
 
+      let index = parseInt(e.target.id.slice(6))
+
       document.querySelector(`#container${index}`).remove()
 
       data.splice(index, 1)
+      tones.splice(index, 1)
+      rootNotes.splice(index, 1)
+      octaves.splice(index, 1)
+      notes.splice(index, 1)
 
       while (index < data.length) {
         let cont = document.querySelector(`#container${index + 1}`)
@@ -387,18 +433,19 @@
         let roo = cont.querySelector('select.root')
         let oct = cont.querySelector('select.octave')
 
+        console.log('okay', index)
         cont.id = `container${index}`
         tab.id = `chart${index}`
-        del.onclick = () => deleteChart(index)
+        del.id = `delete${index}`
         lis.id = `inst${index}`
-        lis.onchange = (e) => changeTone(index, e)
         roo.id = `root${index}`
-        roo.onchange = (e) => changeRoot(index, e)
         oct.id = `octave${index}`
-        oct.onchange = (e) => changeOctave(index, e)
 
         index++
       }
+
+      generateTones()
+      history.replaceState(null, '', '?p=' + encodeAll())
     }
 
     const createChart = () => {
@@ -417,14 +464,14 @@
       chartContainer.id = `container${chartIndex}`
       chart.className = 'pattern'
       chart.id = `chart${chartIndex}`
-      deleteButton.onclick = () => deleteChart(chartIndex)
+      deleteButton.id = `delete${chartIndex}`
+      deleteButton.onclick = (e) => deleteChart(e)
       lis.id = `inst${chartIndex}`
-      lis.onchange = (e) => changeTone(chartIndex, e)
+      lis.onchange = (e) => changeTone(e)
       roo.id = `root${chartIndex}`
-      roo.onchange = (e) => changeRoot(chartIndex, e)
+      roo.onchange = (e) => changeRoot(e)
       oct.id = `octave${chartIndex}`
-      oct.onchange = (e) => changeOctave(chartIndex, e)
-
+      oct.onchange = (e) => changeOctave(e)
 
       body.insertBefore(chartContainer, proto)
 
@@ -483,13 +530,14 @@
         chartContainer.id = `container${chartIndex}`
         chart.className = 'pattern'
         chart.id = `chart${chartIndex}`
-        deleteButton.onclick = () => deleteChart(chartIndex)
+      deleteButton.id = `delete${chartIndex}`
+        deleteButton.onclick = (e) => deleteChart(e)
         lis.id = `inst${chartIndex}`
-        lis.onchange = (e) => changeTone(chartIndex, e)
+        lis.onchange = (e) => changeTone(e)
         roo.id = `root${chartIndex}`
-        roo.onchange = (e) => changeRoot(chartIndex, e)
+        roo.onchange = (e) => changeRoot(e)
         oct.id = `octave${chartIndex}`
-        oct.onchange = (e) => changeOctave(chartIndex, e)
+        oct.onchange = (e) => changeOctave(e)
 
         body.insertBefore(chartContainer, proto)
       })
@@ -662,6 +710,7 @@
       let waveIndex = 0
       let freq = 0
       let samplesPerWave = 0
+      let lastSample = 0
 
       for (let i = 0; i < buffering.length; i++) {
         buffering[i] = 0
@@ -689,8 +738,14 @@
             samplesPerWave = parseInt(sampleRate / freq)
 
             while (localIndex < subBufferSize) {
-              const sample = waveFunction(tones[chartIndex])(waveIndex, samplesPerWave)
+              let sample
               let value = buffering[bufferPointer + localIndex] || 0.0
+
+              if (tones[chartIndex] === 4) {
+                sample = noiseSample(noteIndex, lastSample)
+              } else {
+                sample = waveFunction(tones[chartIndex])(waveIndex, samplesPerWave)
+              }
 
               value += sample
 
@@ -704,6 +759,7 @@
               waveIndex++
               localIndex++
               lastIndex = beatIndex
+              lastSample = sample
 
               if (waveIndex >= samplesPerWave) waveIndex = 0
             }
@@ -712,6 +768,20 @@
           }
         })
       })
+    }
+    
+    const noiseSample = (noteIndex, lastSample) => {
+      const sample = Math.random() > 0.5 ? 1 : -1
+      const a = noteIndex * 0.05
+      const b = noteIndex * 0.07
+
+      // return (1 - a) * (lastSample + a) * ((sample + lastSample) / 2)
+      const l = (a * sample) + ((1 - a) * lastSample)
+      const h = (b * sample) + ((1 - b) * lastSample)
+
+      return h - l
+
+      // return (1 - a) * lastSample + sample * a
     }
 
     const squareSample = (index, samplesPerWave) => {

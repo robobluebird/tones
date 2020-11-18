@@ -1,0 +1,55 @@
+<html>
+<head>
+  <script src="filesaver.min.js"></script>
+</head>
+<body>
+<input type="file" id="filer" />
+<ol id="loaded">
+</ol>
+<button onclick="save()">save</button>
+</body>
+<script type="text/javascript">
+  let loaded = {}
+  let filename
+
+  const readFile = (event) => {
+    const input = event.target
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const reader = new FileReader()
+
+    reader.onload = () => {
+      const arrayBuffer = reader.result
+      audioContext.decodeAudioData(arrayBuffer, decodedDone)
+    }
+
+    filename = input.files[0].name
+    reader.readAsArrayBuffer(input.files[0])
+  }
+
+  const decodedDone = (decoded) => {
+    let typedArray = new Float32Array(decoded.length)
+    typedArray = decoded.getChannelData(0)
+    const node = document.createElement('li')
+    node.innerText = filename
+    document.querySelector('#loaded').appendChild(node)
+    loaded[filename] = typedArray
+  }
+
+  const jsonString = () => {
+    let str = "{"
+    for (const [key, value] of Object.entries(loaded)) {
+      str += `\"${key}\":[${value.toString()}],`
+    }
+    str = str.slice(0, -1)
+    str += "}"
+    return str
+  }
+
+  const save = () => {
+    const blob = new Blob([jsonString()], {type: "text/plain;charset=utf-8"}) 
+    saveAs(blob, 'out.json')
+  }
+
+  document.getElementById('filer').addEventListener('change', readFile, false);
+</script>
+</html>
