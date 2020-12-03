@@ -1,6 +1,11 @@
 <html>
   <head>
+    <script src="drums.js"></script>
     <style>
+      .error {
+        border-color: red;
+      }
+
       body {
         margin: 0;
         padding: 0;
@@ -10,7 +15,7 @@
       .add {
         height: 310px;
         width: 388px;
-        font-size: 100px;
+        font-size: 80px;
         margin: auto;
         display: inline-block;
         text-align: center;
@@ -156,10 +161,11 @@
   <body>
     <div style="text-align: center">
       <p class="line" style="display: none;"></p>
+      <label for="bpm">bpm</label>
+      <input id="bpm" type="number" min="40" max="200" value="120" />
       <button onclick="loop()">loop</button>
       <button onclick="stop()">stop</button>
-      <button onclick="createChart()">add</button>
-      <input id="bpm" type="number" min="40" max="200" value="120" />
+      <a id="download" href="#">download</a>
     </div>
     <div class="cont chartContainer proto">
       <table>
@@ -183,7 +189,7 @@
         <option selected value=1>sine</option>
         <option value=2>triangle</option>
         <option value=3>fuzz</option>
-        <option value=4>noise</option>
+        <option value=4>drums</option>
       <select>
       <select class="root">
         <option selected value="C">C</option>
@@ -208,17 +214,26 @@
         <option value=7>7</option>
         <option value=8>8</option>
       </select>
+      <select class="notelength">
+        <option value=0.25>25%</option>
+        <option value=0.5>50%</option>
+        <option value=0.75>75%</option>
+        <option selected value=1>100%</option>
+      </select>
+      </select>
     </div>
-    <div class="add">+</div>
+    <div class="add" onclick="createChart()">+</div>
   </body>
   <script type="text/javascript">
     const toneConstant = 1.059463
     const notes = []
+    const drums = {}
     const sampleRate = 22050
     const data = []
     const tones = []
     const rootNotes = []
     const octaves = []
+    const noteLengths = []
     const noteNamesAndFreqs = {
       C: 262,
       'C#': 277,
@@ -330,7 +345,7 @@
       subBufferSize = parseInt(bufferSize / 16)
       buffer = audioCtx.createBuffer(1, bufferSize, sampleRate);
 
-      generateTones()
+      generateSound()
 
       if (restart) {
         loop()
@@ -344,7 +359,7 @@
       tones[index] = parseInt(e.target.value)
       history.replaceState(null, '', '?p=' + encodeAll())
       paintAll()
-      generateTones()
+      generateSound()
     }
 
     const changeOctave = (e) => {
@@ -353,7 +368,16 @@
       history.replaceState(null, '', '?p=' + encodeAll())
       generateNotes(index)
       paintAll()
-      generateTones()
+      generateSound()
+    }
+
+    const changeNoteLength = (e) => {
+      const index = parseInt(e.target.id.slice(10))
+      noteLengths[index] = parseFloat(e.target.value)
+      history.replaceState(null, '', '?p=' + encodeAll())
+      generateNotes(index)
+      paintAll()
+      generateSound()
     }
 
     const setNoteText = (index, note) => {
@@ -376,14 +400,12 @@
       const note = e.target.value
       const index = parseInt(e.target.id.slice(4))
 
-      console.log("can man", index, note)
-
       setNoteText(index, note)
       rootNotes[index] = note
       history.replaceState(null, '', '?p=' + encodeAll())
       generateNotes(index)
       paintAll()
-      generateTones()
+      generateSound()
     }
 
     const generateNotes = (index) => {
@@ -423,6 +445,7 @@
       tones.splice(index, 1)
       rootNotes.splice(index, 1)
       octaves.splice(index, 1)
+      noteLengths.splice(index, 1)
       notes.splice(index, 1)
 
       while (index < data.length) {
@@ -432,19 +455,21 @@
         let lis = cont.querySelector('select.tone')
         let roo = cont.querySelector('select.root')
         let oct = cont.querySelector('select.octave')
+        let ntl = cont.querySelector('select.notelength')
 
-        console.log('okay', index)
         cont.id = `container${index}`
         tab.id = `chart${index}`
         del.id = `delete${index}`
         lis.id = `inst${index}`
         roo.id = `root${index}`
         oct.id = `octave${index}`
+        ntl.id = `notelength${index}`
 
         index++
       }
 
-      generateTones()
+      assignCellClicks()
+      generateSound()
       history.replaceState(null, '', '?p=' + encodeAll())
     }
 
@@ -459,6 +484,7 @@
       let lis = chartContainer.querySelector('select.tone')
       let roo = chartContainer.querySelector('select.root')
       let oct = chartContainer.querySelector('select.octave')
+      let ntl = chartContainer.querySelector('select.notelength')
 
       chartContainer.classList.remove('proto')
       chartContainer.id = `container${chartIndex}`
@@ -472,6 +498,8 @@
       roo.onchange = (e) => changeRoot(e)
       oct.id = `octave${chartIndex}`
       oct.onchange = (e) => changeOctave(e)
+      ntl.id = `notelength${chartIndex}`
+      ntl.onchange = (e) => changeNoteLength(e)
 
       body.insertBefore(chartContainer, proto)
 
@@ -479,12 +507,14 @@
       tones[chartIndex] = 1
       rootNotes[chartIndex] = 'C'
       octaves[chartIndex] = 3
+      noteLengths[chartIndex] = 1.0
       generateNotes(chartIndex)
       paintAll()
       setInsts()
       setRoots()
       setOctaves()
-      generateTones()
+      setNoteLengths()
+      generateSound()
 
       const trs = chart.querySelectorAll(':scope tr')
 
@@ -501,13 +531,13 @@
 
             history.replaceState(null, '', '?p=' + encodeAll())
             paintAll()
-            generateTones()
+            generateSound()
           }
         })
       })
 
       paintAll()
-      generateTones()
+      generateSound()
     }
 
     const createCharts = () => {
@@ -525,12 +555,13 @@
         let lis = chartContainer.querySelector('select.tone')
         let roo = chartContainer.querySelector('select.root')
         let oct = chartContainer.querySelector('select.octave')
+        let ntl = chartContainer.querySelector('select.notelength')
 
         chartContainer.classList.remove('proto')
         chartContainer.id = `container${chartIndex}`
         chart.className = 'pattern'
         chart.id = `chart${chartIndex}`
-      deleteButton.id = `delete${chartIndex}`
+        deleteButton.id = `delete${chartIndex}`
         deleteButton.onclick = (e) => deleteChart(e)
         lis.id = `inst${chartIndex}`
         lis.onchange = (e) => changeTone(e)
@@ -538,6 +569,8 @@
         roo.onchange = (e) => changeRoot(e)
         oct.id = `octave${chartIndex}`
         oct.onchange = (e) => changeOctave(e)
+        ntl.id = `notelength${chartIndex}`
+        ntl.onchange = (e) => changeNoteLength(e)
 
         body.insertBefore(chartContainer, proto)
       })
@@ -565,6 +598,14 @@
       })
     }
 
+    const setNoteLengths = () => {
+      noteLengths.forEach((noteLength, index) => {
+        console.log("!@#", noteLength)
+        let n = document.querySelector(`#notelength${index}`)
+        n.value = noteLength.toString()
+      })
+    }
+
     const init = () => {
       // fetch initial pattern from params and fill data with it
       const params = (new URL(document.location)).searchParams
@@ -585,14 +626,16 @@
             const tone = parseInt(pattern[0])
             const rootNote = Object.keys(noteNamesAndFreqs)[parseInt(pattern[1], 16)]
             const octave = parseInt(pattern[2])
+            const noteLength = parseFloat([0.25, 0.5, 0.75, 1.0][parseInt(pattern[3])])
 
             tones[index] = tone
             rootNotes[index] = rootNote
             octaves[index] = octave
+            noteLengths[index] = noteLength
             generateNotes(index)
 
-            if (pattern.length > 3) {
-              pattern.slice(3)
+            if (pattern.length > 4) {
+              pattern.slice(4)
                 .split('')
                 .reduce((result, value, i, array) => {
                   if (i % 2 === 0)
@@ -611,15 +654,24 @@
         tones[0] = 1
         rootNotes[0] = 'C'
         octaves[0] = 3
+        noteLengths[0] = 1.0
         generateNotes(0)
       }
 
       createCharts()
+      assignCellClicks()
       paintAll()
       setInsts()
       setRoots()
       setOctaves()
-      generateTones()
+      setNoteLengths()
+      generateDrums()
+
+      drums['kreb'] = generateSlap(220)
+
+      generateSound()
+
+      console.log('okay', Object.keys(drums))
 
       // hook up bpm
       const bpmInput = document.querySelector('#bpm')
@@ -627,15 +679,14 @@
       bpmInput.onchange = (e) => {
         changeTempo(e)
       }
+    }
 
-      // set info line to current pattern data
-      const line = document.querySelector('.line')
-      line.innerText = data
-
+    const assignCellClicks = () => {
       const tables = document.querySelectorAll('table')
 
-      forEach(tables, (tableIndex, table) => {
+      forEach(tables, (_, table) => {
         const trs = table.querySelectorAll(':scope tr')
+        const tableIndex = parseInt(table.id.slice(5))
 
         forEach(trs, (rowIndex, tr) => {
           const tds = tr.querySelectorAll(':scope td')
@@ -650,11 +701,73 @@
 
               history.replaceState(null, '', '?p=' + encodeAll())
               paintAll()
-              generateTones()
+              generateSound()
             }
           })
         })
       })
+    }
+
+    const prepareDownload = () => {
+      const newFile = URL.createObjectURL(bufferToWave(buffer, buffer.length))
+      const link = document.querySelector('#download')
+      link.href = newFile
+      link.download = "loop.wav"
+    }
+
+    // Convert AudioBuffer to a Blob using WAVE representation
+    function bufferToWave(abuffer, len) {
+      var numOfChan = abuffer.numberOfChannels,
+      length = len * numOfChan * 2 + 44,
+      buffer = new ArrayBuffer(length),
+      view = new DataView(buffer),
+      channels = [], i, sample,
+      offset = 0,
+      pos = 0;
+
+      // write WAVE header
+      setUint32(0x46464952);                         // "RIFF"
+      setUint32(length - 8);                         // file length - 8
+      setUint32(0x45564157);                         // "WAVE"
+
+      setUint32(0x20746d66);                         // "fmt " chunk
+      setUint32(16);                                 // length = 16
+      setUint16(1);                                  // PCM (uncompressed)
+      setUint16(numOfChan);
+      setUint32(abuffer.sampleRate);
+      setUint32(abuffer.sampleRate * 2 * numOfChan); // avg. bytes/sec
+      setUint16(numOfChan * 2);                      // block-align
+      setUint16(16);                                 // 16-bit (hardcoded in this demo)
+
+      setUint32(0x61746164);                         // "data" - chunk
+      setUint32(length - pos - 4);                   // chunk length
+
+      // write interleaved data
+      for(i = 0; i < abuffer.numberOfChannels; i++)
+        channels.push(abuffer.getChannelData(i));
+
+      while(pos < length) {
+        for(i = 0; i < numOfChan; i++) {             // interleave channels
+          sample = Math.max(-1, Math.min(1, channels[i][offset])); // clamp
+          sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767)|0; // scale to 16-bit signed int
+          view.setInt16(pos, sample, true);          // write 16-bit sample
+          pos += 2;
+        }
+        offset++                                     // next source sample
+      }
+
+      // create Blob
+      return new Blob([buffer], {type: "audio/wav"});
+
+      function setUint16(data) {
+        view.setUint16(pos, data, true);
+        pos += 2;
+      }
+
+      function setUint32(data) {
+        view.setUint32(pos, data, true);
+        pos += 4;
+      }
     }
 
     const encodeAll = () => {
@@ -666,6 +779,7 @@
         beatString = beatString.concat(tones[index])
         beatString = beatString.concat(Object.keys(noteNamesAndFreqs).indexOf(rootNotes[index]).toString(16))
         beatString = beatString.concat(octaves[index])
+        beatString = beatString.concat([0.25, 0.5, 0.75, 1.0].indexOf(noteLengths[index]))
 
         chart.forEach((noteIndex, index) => {
           if (noteIndex !== null && noteIndex !== undefined) {
@@ -704,6 +818,132 @@
       }
     }
 
+    const generateSlap = (rate) => {
+      const samples = [0.0]
+
+      for (let i = 4; i > 0; i--) {
+        for (let j = 1; j <= rate; j++) {
+          let value
+          const q = rate / 4
+
+          // Math.random() * (max - min) + min
+
+          value = i * (Math.random() * 0.1)
+
+          if (j < q) {
+            if (j > q / 2)
+              value = value * Math.sin(q)
+          } else if (j > q && j < q * 2) {
+            value = -value
+          } else if (j > q * 2 && j < q * 3) {
+            if (j > q * 2 + q / 2)
+              value = value * Math.sin(q)
+          } else {
+            value = -value
+          }
+
+          samples[(4 - i) * j] = value
+        }
+      }
+
+      samples[samples.length] = 0.0
+
+      return samples
+    }
+
+    const generateSound = () => {
+      generateTones()
+      generateBeat()
+      prepareDownload()
+    }
+
+    const generateBeat = () => {
+      let buffering = buffer.getChannelData(0)
+
+      data.filter((el, index) => tones[index] === 4).forEach((beatData, chartIndex) => {
+        beatData.forEach((noteIndex, beatIndex) => {
+          if (noteIndex !== null && noteIndex !== undefined) {
+            let drumFrame
+
+            console.log(Object.keys(drums))
+
+            const key = Object.keys(drums)[noteIndex]
+
+            if (!!key) {
+              drumFrame = drums[key]
+            } else {
+              return
+            }
+
+            let bufferPointer = beatIndex * subBufferSize // start of the "16th" subsection
+            let localIndex = 0
+
+            while (localIndex < drumFrame.length && bufferPointer + localIndex < buffering.length) {
+              let value = buffering[bufferPointer + localIndex] || 0.0
+              
+              value += drumFrame[localIndex]
+
+              if (value > 1.0)
+                value = 1.0
+              else if (value < -1.0)
+                value = -1.0
+
+              buffering[bufferPointer + localIndex] = value
+              localIndex++
+            }
+          }
+        })
+      })
+    }
+
+    const generateDrums = () => {
+      Object.keys(drumData).forEach((drumName) => {
+        drums[drumName] = generateDrum(drumName)
+      })
+    }
+
+    const generateDrum = (drum) => {
+      let drumIndex = 0
+      let sample = []
+
+      drumData[drum].forEach((guidepost, index, arr) => {
+        if (index === arr.length - 1) {
+          sample[guidepost[1]] = guidepost[0]
+        } else {
+          const nextGuidepostIndex = arr[index + 1][1]
+          const interval = (arr[index + 1][0] - guidepost[0]) / (arr[index + 1][1] - guidepost[1])
+
+          if (interval === 0) {
+            console.log('ZERO INT', arr[index - 1], arr[index + 1], guidepost, arr[index + 1][1] - guidepost[1])
+          }
+
+          let localIndex = guidepost[1] + 1
+
+          sample[guidepost[1]] = guidepost[0]
+
+          while(localIndex < nextGuidepostIndex) {
+            // if (index > arr.length - 21) {
+            //   console.log('mano', guidepost, sample[localIndex], sample[localIndex - 1], interval)
+            // }
+            sample[localIndex] = sample[localIndex - 1] + interval
+            localIndex++
+          }
+        }
+      })
+
+      return sample
+    }
+
+    const waveMultiplier = (index, bufferSize, noteLength) => {
+      if (noteLength === 1) {
+        return 1
+      }
+
+      let thing = ((bufferSize * noteLength) - index) / (bufferSize * noteLength)
+
+      return Math.max(0, thing)
+    }
+
     const generateTones = () => {
       let buffering = buffer.getChannelData(0)
       let carryover = 0
@@ -713,10 +953,10 @@
       let lastSample = 0
 
       for (let i = 0; i < buffering.length; i++) {
-        buffering[i] = 0
+        buffering[i] = 0.0
       }
 
-      data.forEach((beatData, chartIndex) => {
+      data.filter((el, index) => tones[index] !== 4).forEach((beatData, chartIndex) => {
         let lastIndex = -1
 
         beatData.forEach((noteIndex, beatIndex) => {
@@ -726,7 +966,7 @@
 
             if (lastIndex === beatIndex - 1) {
               while (carryover > 0) {
-                buffering[bufferPointer + localIndex] = waveFunction(tones[chartIndex])(waveIndex, samplesPerWave)
+                buffering[bufferPointer + localIndex] = waveFunction(tones[chartIndex])(waveIndex, samplesPerWave, waveMultiplier(localIndex, subBufferSize, noteLengths[chartIndex]))
                 localIndex++
                 waveIndex++
                 carryover--
@@ -738,14 +978,9 @@
             samplesPerWave = parseInt(sampleRate / freq)
 
             while (localIndex < subBufferSize) {
-              let sample
               let value = buffering[bufferPointer + localIndex] || 0.0
 
-              if (tones[chartIndex] === 4) {
-                sample = noiseSample(noteIndex, lastSample)
-              } else {
-                sample = waveFunction(tones[chartIndex])(waveIndex, samplesPerWave)
-              }
+              let sample = waveFunction(tones[chartIndex])(waveIndex, samplesPerWave, waveMultiplier(localIndex, subBufferSize, noteLengths[chartIndex]))
 
               value += sample
 
@@ -770,50 +1005,36 @@
       })
     }
     
-    const noiseSample = (noteIndex, lastSample) => {
-      const sample = Math.random() > 0.5 ? 1 : -1
-      const a = noteIndex * 0.05
-      const b = noteIndex * 0.07
-
-      // return (1 - a) * (lastSample + a) * ((sample + lastSample) / 2)
-      const l = (a * sample) + ((1 - a) * lastSample)
-      const h = (b * sample) + ((1 - b) * lastSample)
-
-      return h - l
-
-      // return (1 - a) * lastSample + sample * a
+    const squareSample = (index, samplesPerWave, multiplier = 1.0) => {
+      return (index <= parseInt(samplesPerWave / 2) ? 0.8 : -0.8) * multiplier
     }
 
-    const squareSample = (index, samplesPerWave) => {
-      return index <= parseInt(samplesPerWave / 2) ? 0.8 : -0.8
+    const fuzzSample = (index, samplesPerWave, multiplier = 1.0) => {
+      return (index <= parseInt(samplesPerWave / 2) ? Math.random() : Math.random() - 1) * multiplier
     }
 
-    const fuzzSample = (index, samplesPerWave) => {
-      return index <= parseInt(samplesPerWave / 2) ? Math.random() : Math.random() - 1
-    }
-
-    const triangleSample = (index, samplesPerWave) => {
+    const triangleSample = (index, samplesPerWave, multiplier = 1.0) => {
       const halfSamples = parseInt(samplesPerWave / 2)
       const quarterSamples = parseInt(samplesPerWave / 4)
       const ramp = 1 / quarterSamples
       
       if (index <= halfSamples) {
         if (index <= quarterSamples) {
-          return index * ramp
+          return index * ramp * multiplier
         } else {
-          return (halfSamples - index) * ramp
+          return (halfSamples - index) * ramp * multiplier
         }
       } else {
         if (index <= halfSamples + quarterSamples) {
-          return -((index - halfSamples) * ramp)
+          return -((index - halfSamples) * ramp) * multiplier
         } else {
-          return -((samplesPerWave - index) * ramp)
+          return -((samplesPerWave - index) * ramp) * multiplier
         }
       }
     }
 
-    const sineSample = (index, samplesPerWave) => {
-      return Math.sin(index / (samplesPerWave / (Math.PI * 2)))
+    const sineSample = (index, samplesPerWave, multiplier = 1.0) => {
+      return Math.sin(index / (samplesPerWave / (Math.PI * 2))) * multiplier
     }
 
     const play = () => {
