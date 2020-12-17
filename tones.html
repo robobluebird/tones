@@ -1,7 +1,16 @@
 <html>
   <head>
-    <script src="drums.js"></script>
+    <!-- <script src="drums.js"></script> -->
     <style>
+      .phrase {
+        padding: 20px 0 20px 0;
+        border-bottom: 1px dashed black;
+      }
+
+      .phrase:last-child {
+        border-bottom: 0;
+      }
+
       .error {
         border-color: red;
       }
@@ -9,7 +18,15 @@
       body {
         margin: 0;
         padding: 0;
-        font-family: sans-serif;
+      }
+
+      .action {
+        font-size: 1.5em;
+      }
+
+      .space {
+        display: inline-block;
+        width: 50px;
       }
 
       .add {
@@ -22,6 +39,7 @@
         vertical-align: top;
         line-height: 310px;
         cursor: pointer;
+        background-color: #EEEEEE;
       }
 
       .add:hover {
@@ -67,6 +85,22 @@
 
       table.pattern tr:nth-child(even) td.on {
         background-color: red;
+      }
+
+      table.pattern tr:nth-child(odd) td.black {
+        background-color: black;
+      }
+
+      table.pattern tr:nth-child(even) td.black {
+        background-color: black;
+      }
+
+      table.pattern tr:nth-child(odd) td.tan {
+        background-color: antiquewhite;
+      }
+
+      table.pattern tr:nth-child(even) td.tan {
+        background-color: antiquewhite;
       }
 
       table.pattern tr:nth-child(odd) td.red {
@@ -117,6 +151,14 @@
         background-color: #AAAAAA;
       }
 
+      table.pattern tr:nth-child(odd) td:hover.black {
+        background-color: black;
+      }
+
+      table.pattern tr:nth-child(odd) td:hover.tan {
+        background-color: antiquewhite;
+      }
+
       table.pattern tr:nth-child(odd) td:hover.red {
         background-color: red;
       }
@@ -156,16 +198,32 @@
       table.pattern tr:nth-child(even) td:hover.orange {
         background-color: orange;
       }
+
+      .addloop {
+        text-align: center; 
+        font-size: 80px;
+        height: 80px;
+        line-height: 80px;
+        margin: 20px auto;
+        text-align: center;
+        vertical-align: top;
+        cursor: pointer;
+        background-color: #EEEEEE;
+      }
+
+      .addloop:hover {
+        background-color: lightgray;
+      } 
     </style>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <title>quick loops</title>
   </head>
   <body>
     <div style="text-align: center">
-      <p class="line" style="display: none;"></p>
-      <label for="bpm">bpm</label>
-      <input id="bpm" type="number" min="40" max="200" value="120" />
-      <button onclick="loop()">loop</button>
-      <button onclick="stop()">stop</button>
-      <a id="download" href="#">download</a>
+      <button class="action" onclick="loop()">loop</button>
+      <button class="action" onclick="stop()">stop</button>
+      <div class="space"></div>
+      <a id="download" href="#">download .wav</a>
     </div>
     <div class="cont chartContainer proto">
       <table>
@@ -189,7 +247,7 @@
         <option selected value=1>sine</option>
         <option value=2>triangle</option>
         <option value=3>fuzz</option>
-        <option value=4>drums</option>
+        <!-- <option value=4>drums</option> -->
       <select>
       <select class="root">
         <option selected value="C">C</option>
@@ -222,849 +280,9 @@
       </select>
       </select>
     </div>
-    <div class="add" onclick="createChart()">+</div>
   </body>
+  <script src="tones.js"></script>
   <script type="text/javascript">
-    const toneConstant = 1.059463
-    const notes = []
-    const drums = {}
-    const sampleRate = 22050
-    const data = []
-    const tones = []
-    const rootNotes = []
-    const octaves = []
-    const noteLengths = []
-    const noteNamesAndFreqs = {
-      C: 262,
-      'C#': 277,
-      D: 294,
-      'D#': 311,
-      E: 330,
-      F: 349,
-      'F#': 370,
-      G: 392,
-      'G#': 415,
-      A: 440,
-      'A#': 466,
-      B: 494
-    }
-
-    let playing = false
-    let bpm = 110
-    let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    let beatsPerSecond = bpm / 60.0
-    let secondsPerBeat = 1.0 / beatsPerSecond
-    let seconds = secondsPerBeat * 4
-    let bufferSize = parseInt(seconds * sampleRate)
-    let subBufferSize = parseInt(bufferSize / 16)
-    let buffer = audioCtx.createBuffer(1, bufferSize, sampleRate);
-    let bufferSource
-
-    const generateNoteNames = (startNote) => {
-      const noteNames = Object.keys(noteNamesAndFreqs)
-      let index = noteNames.indexOf(startNote)
-
-      if (index === -1) {
-        return []
-      }
-
-      let names = []
-      let namesIndex = 0
-
-      while (namesIndex <= 12) {
-        if (index > 11) {
-          index = 0
-        }
-
-        names[namesIndex] = noteNames[index]
-
-        index++
-        namesIndex++
-      }
-
-      names[namesIndex] = startNote
-
-      return names
-    }
-
-    const forEach = (array, callback, scope) => {
-      for (let i = 0; i < array.length; i++) {
-        callback.call(scope, i, array[i]);
-      }
-    }
-
-    const paintAll = () => {
-      data.forEach((chart, index) => {
-        const table = document.querySelector(`#chart${index}`)
-        const trs = table.querySelectorAll(':scope tbody tr')
-
-        forEach(trs, (i, tr) => {
-          const tds = tr.querySelectorAll(':scope td');
-
-          forEach(tds, (j, td) => {
-            if (data[index][j] === i) {
-              td.className = toneClass(tones[index] || 0)
-            } else {
-              td.className = ''
-            }
-          })
-        })
-      })
-    }
-
-    const toneClass = (index) => {
-      switch (index) {
-        case 0:
-          return 'red'
-        case 1:
-          return 'blue'
-        case 2:
-          return 'green'
-        case 3:
-          return 'orange'
-        case 4:
-          return 'purple'
-      }
-    }
-
-    const changeTempo = (e) => {
-      let restart = false
-
-      if (playing) {
-        restart = true
-      }
-
-      stop()
-      
-      bpm = parseInt(e.target.value)
-
-      beatsPerSecond = bpm / 60.0
-      secondsPerBeat = 1.0 / beatsPerSecond
-      seconds = secondsPerBeat * 4
-      bufferSize = parseInt(seconds * sampleRate)
-      subBufferSize = parseInt(bufferSize / 16)
-      buffer = audioCtx.createBuffer(1, bufferSize, sampleRate);
-
-      generateSound()
-
-      if (restart) {
-        loop()
-      }
-
-      history.replaceState(null, '', '?p=' + encodeAll())
-    }
-
-    const changeTone = (e) => {
-      const index = parseInt(e.target.id.slice(4))
-      tones[index] = parseInt(e.target.value)
-      history.replaceState(null, '', '?p=' + encodeAll())
-      paintAll()
-      generateSound()
-    }
-
-    const changeOctave = (e) => {
-      const index = parseInt(e.target.id.slice(6))
-      octaves[index] = parseInt(e.target.value)
-      history.replaceState(null, '', '?p=' + encodeAll())
-      generateNotes(index)
-      paintAll()
-      generateSound()
-    }
-
-    const changeNoteLength = (e) => {
-      const index = parseInt(e.target.id.slice(10))
-      noteLengths[index] = parseFloat(e.target.value)
-      history.replaceState(null, '', '?p=' + encodeAll())
-      generateNotes(index)
-      paintAll()
-      generateSound()
-    }
-
-    const setNoteText = (index, note) => {
-      const newNotes = generateNoteNames(note)
-      const table = document.querySelector(`#chart${index}`)
-      const trs = table.querySelectorAll(':scope tr')
-
-      forEach(trs, (rowIndex, tr) => {
-        const firstTd = tr.querySelector('td')
-
-        if (rowIndex < newNotes.length) {
-          firstTd.innerText = newNotes[rowIndex]
-        } else {
-          firstTd.innerText = newNotes[0]
-        }
-      })
-    }
-
-    const changeRoot = (e) => {
-      const note = e.target.value
-      const index = parseInt(e.target.id.slice(4))
-
-      setNoteText(index, note)
-      rootNotes[index] = note
-      history.replaceState(null, '', '?p=' + encodeAll())
-      generateNotes(index)
-      paintAll()
-      generateSound()
-    }
-
-    const generateNotes = (index) => {
-      let octaveShift = Math.pow(toneConstant, 12)
-      let octaveShiftCount = 0
-
-      if (octaves[index] < 4) {
-        octaveShift = 1 / Math.pow(toneConstant, 12)
-        octaveShiftCount = 4 - octaves[index]
-      } else if (octaves[index] > 4) {
-        octaveShiftCount = octaves[index] - 4
-      }
-
-      let rootValue = noteNamesAndFreqs[rootNotes[index]]
-      for (let i = 0; i < octaveShiftCount; i++) {
-        rootValue = rootValue * octaveShift 
-      }
-
-      notes[index] = []
-      notes[index][12] = rootValue
-
-      for (let i = 12; i >= 0; i--) {
-        notes[index][12 - i] = generateNoteFrequency(i, rootValue)
-      }
-    }
-
-    const deleteChart = (e) => {
-      if (data.length <= 1) {
-        return
-      }
-
-      let index = parseInt(e.target.id.slice(6))
-
-      document.querySelector(`#container${index}`).remove()
-
-      data.splice(index, 1)
-      tones.splice(index, 1)
-      rootNotes.splice(index, 1)
-      octaves.splice(index, 1)
-      noteLengths.splice(index, 1)
-      notes.splice(index, 1)
-
-      while (index < data.length) {
-        let cont = document.querySelector(`#container${index + 1}`)
-        let tab = cont.querySelector(`#chart${index + 1}`)
-        let del = cont.querySelector('button.delete')
-        let lis = cont.querySelector('select.tone')
-        let roo = cont.querySelector('select.root')
-        let oct = cont.querySelector('select.octave')
-        let ntl = cont.querySelector('select.notelength')
-
-        cont.id = `container${index}`
-        tab.id = `chart${index}`
-        del.id = `delete${index}`
-        lis.id = `inst${index}`
-        roo.id = `root${index}`
-        oct.id = `octave${index}`
-        ntl.id = `notelength${index}`
-
-        index++
-      }
-
-      assignCellClicks()
-      generateSound()
-      history.replaceState(null, '', '?p=' + encodeAll())
-    }
-
-    const createChart = () => {
-      const proto = document.querySelector("div.proto")
-      const body = document.querySelector('body')
-      const chartIndex = data.length
-
-      let chartContainer = proto.cloneNode(true)
-      let chart = chartContainer.querySelector('table')
-      let deleteButton = chartContainer.querySelector('button.delete')
-      let lis = chartContainer.querySelector('select.tone')
-      let roo = chartContainer.querySelector('select.root')
-      let oct = chartContainer.querySelector('select.octave')
-      let ntl = chartContainer.querySelector('select.notelength')
-
-      chartContainer.classList.remove('proto')
-      chartContainer.id = `container${chartIndex}`
-      chart.className = 'pattern'
-      chart.id = `chart${chartIndex}`
-      deleteButton.id = `delete${chartIndex}`
-      deleteButton.onclick = (e) => deleteChart(e)
-      lis.id = `inst${chartIndex}`
-      lis.onchange = (e) => changeTone(e)
-      roo.id = `root${chartIndex}`
-      roo.onchange = (e) => changeRoot(e)
-      oct.id = `octave${chartIndex}`
-      oct.onchange = (e) => changeOctave(e)
-      ntl.id = `notelength${chartIndex}`
-      ntl.onchange = (e) => changeNoteLength(e)
-
-      body.insertBefore(chartContainer, proto)
-
-      data[chartIndex] = []
-      tones[chartIndex] = 1
-      rootNotes[chartIndex] = 'C'
-      octaves[chartIndex] = 3
-      noteLengths[chartIndex] = 1.0
-      generateNotes(chartIndex)
-      paintAll()
-      setInsts()
-      setRoots()
-      setOctaves()
-      setNoteLengths()
-      generateSound()
-
-      const trs = chart.querySelectorAll(':scope tr')
-
-      forEach(trs, (rowIndex, tr) => {
-        const tds = tr.querySelectorAll(':scope td')
-
-        forEach(tds, (dataIndex, td) => {
-          td.onclick = (e) => {
-            if (data[chartIndex][dataIndex] === rowIndex) {
-              data[chartIndex][dataIndex] = null
-            } else {
-              data[chartIndex][dataIndex] = rowIndex
-            }
-
-            history.replaceState(null, '', '?p=' + encodeAll())
-            paintAll()
-            generateSound()
-          }
-        })
-      })
-
-      paintAll()
-      generateSound()
-    }
-
-    const createCharts = () => {
-      const proto = document.querySelector("div.proto")
-      const body = document.querySelector('body')
-
-      if (data.length === 0) {
-        data[0] = []
-      }
-
-      data.forEach((data, chartIndex) => {
-        let chartContainer = proto.cloneNode(true)
-        let chart = chartContainer.querySelector('table')
-        let deleteButton = chartContainer.querySelector('button.delete')
-        let lis = chartContainer.querySelector('select.tone')
-        let roo = chartContainer.querySelector('select.root')
-        let oct = chartContainer.querySelector('select.octave')
-        let ntl = chartContainer.querySelector('select.notelength')
-
-        chartContainer.classList.remove('proto')
-        chartContainer.id = `container${chartIndex}`
-        chart.className = 'pattern'
-        chart.id = `chart${chartIndex}`
-        deleteButton.id = `delete${chartIndex}`
-        deleteButton.onclick = (e) => deleteChart(e)
-        lis.id = `inst${chartIndex}`
-        lis.onchange = (e) => changeTone(e)
-        roo.id = `root${chartIndex}`
-        roo.onchange = (e) => changeRoot(e)
-        oct.id = `octave${chartIndex}`
-        oct.onchange = (e) => changeOctave(e)
-        ntl.id = `notelength${chartIndex}`
-        ntl.onchange = (e) => changeNoteLength(e)
-
-        body.insertBefore(chartContainer, proto)
-      })
-    }
-
-    const setInsts = () => {
-      tones.forEach((tone, index) => {
-        let inst = document.querySelector(`#inst${index}`)
-        inst.value = tone
-      })
-    }
-
-    const setRoots = () => {
-      rootNotes.forEach((root, index) => {
-        let r = document.querySelector(`#root${index}`)
-        r.value = root
-        setNoteText(index, root)
-      })
-    }
-
-    const setOctaves = () => {
-      octaves.forEach((octave, index) => {
-        let o = document.querySelector(`#octave${index}`)
-        o.value = octave
-      })
-    }
-
-    const setNoteLengths = () => {
-      noteLengths.forEach((noteLength, index) => {
-        console.log("!@#", noteLength)
-        let n = document.querySelector(`#notelength${index}`)
-        n.value = noteLength.toString()
-      })
-    }
-
-    const init = () => {
-      // fetch initial pattern from params and fill data with it
-      const params = (new URL(document.location)).searchParams
-      const patternsParam = params.get('p')
-      if (!!patternsParam) {
-        const patterns = patternsParam.split(';')
-
-        bpm = parseInt(patterns.shift(), 16)
-
-        patterns.forEach((pattern, index) => {
-          data[index] = []
-
-          if (!!pattern) {
-            const rows = pattern.split('-')
-
-            // no longer split on dash, now do positional math!!!
-
-            const tone = parseInt(pattern[0])
-            const rootNote = Object.keys(noteNamesAndFreqs)[parseInt(pattern[1], 16)]
-            const octave = parseInt(pattern[2])
-            const noteLength = parseFloat([0.25, 0.5, 0.75, 1.0][parseInt(pattern[3])])
-
-            tones[index] = tone
-            rootNotes[index] = rootNote
-            octaves[index] = octave
-            noteLengths[index] = noteLength
-            generateNotes(index)
-
-            if (pattern.length > 4) {
-              pattern.slice(4)
-                .split('')
-                .reduce((result, value, i, array) => {
-                  if (i % 2 === 0)
-                    result.push(array.slice(i, i + 2))
-                  return result
-                }, [])
-                .forEach((row) => {
-                  const columnIndex = parseInt(row[0], 16)
-                  const noteIndex = parseInt(row[1], 16)
-                  data[index][columnIndex] = noteIndex
-                })
-            }
-          }
-        })
-      } else {
-        tones[0] = 1
-        rootNotes[0] = 'C'
-        octaves[0] = 3
-        noteLengths[0] = 1.0
-        generateNotes(0)
-      }
-
-      createCharts()
-      assignCellClicks()
-      paintAll()
-      setInsts()
-      setRoots()
-      setOctaves()
-      setNoteLengths()
-      generateDrums()
-
-      drums['kreb'] = generateSlap(220)
-
-      generateSound()
-
-      console.log('okay', Object.keys(drums))
-
-      // hook up bpm
-      const bpmInput = document.querySelector('#bpm')
-      bpmInput.value = bpm
-      bpmInput.onchange = (e) => {
-        changeTempo(e)
-      }
-    }
-
-    const assignCellClicks = () => {
-      const tables = document.querySelectorAll('table')
-
-      forEach(tables, (_, table) => {
-        const trs = table.querySelectorAll(':scope tr')
-        const tableIndex = parseInt(table.id.slice(5))
-
-        forEach(trs, (rowIndex, tr) => {
-          const tds = tr.querySelectorAll(':scope td')
-
-          forEach(tds, (dataIndex, td) => {
-            td.onclick = (e) => {
-              if (data[tableIndex][dataIndex] === rowIndex) {
-                data[tableIndex][dataIndex] = null
-              } else {
-                data[tableIndex][dataIndex] = rowIndex
-              }
-
-              history.replaceState(null, '', '?p=' + encodeAll())
-              paintAll()
-              generateSound()
-            }
-          })
-        })
-      })
-    }
-
-    const prepareDownload = () => {
-      const newFile = URL.createObjectURL(bufferToWave(buffer, buffer.length))
-      const link = document.querySelector('#download')
-      link.href = newFile
-      link.download = "loop.wav"
-    }
-
-    // Convert AudioBuffer to a Blob using WAVE representation
-    function bufferToWave(abuffer, len) {
-      var numOfChan = abuffer.numberOfChannels,
-      length = len * numOfChan * 2 + 44,
-      buffer = new ArrayBuffer(length),
-      view = new DataView(buffer),
-      channels = [], i, sample,
-      offset = 0,
-      pos = 0;
-
-      // write WAVE header
-      setUint32(0x46464952);                         // "RIFF"
-      setUint32(length - 8);                         // file length - 8
-      setUint32(0x45564157);                         // "WAVE"
-
-      setUint32(0x20746d66);                         // "fmt " chunk
-      setUint32(16);                                 // length = 16
-      setUint16(1);                                  // PCM (uncompressed)
-      setUint16(numOfChan);
-      setUint32(abuffer.sampleRate);
-      setUint32(abuffer.sampleRate * 2 * numOfChan); // avg. bytes/sec
-      setUint16(numOfChan * 2);                      // block-align
-      setUint16(16);                                 // 16-bit (hardcoded in this demo)
-
-      setUint32(0x61746164);                         // "data" - chunk
-      setUint32(length - pos - 4);                   // chunk length
-
-      // write interleaved data
-      for(i = 0; i < abuffer.numberOfChannels; i++)
-        channels.push(abuffer.getChannelData(i));
-
-      while(pos < length) {
-        for(i = 0; i < numOfChan; i++) {             // interleave channels
-          sample = Math.max(-1, Math.min(1, channels[i][offset])); // clamp
-          sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767)|0; // scale to 16-bit signed int
-          view.setInt16(pos, sample, true);          // write 16-bit sample
-          pos += 2;
-        }
-        offset++                                     // next source sample
-      }
-
-      // create Blob
-      return new Blob([buffer], {type: "audio/wav"});
-
-      function setUint16(data) {
-        view.setUint16(pos, data, true);
-        pos += 2;
-      }
-
-      function setUint32(data) {
-        view.setUint32(pos, data, true);
-        pos += 4;
-      }
-    }
-
-    const encodeAll = () => {
-      let beatString = '';
-
-      beatString = beatString.concat(bpm.toString(16).toUpperCase().padStart(2, '0'), ';')
-
-      data.forEach((chart, index) => {
-        beatString = beatString.concat(tones[index])
-        beatString = beatString.concat(Object.keys(noteNamesAndFreqs).indexOf(rootNotes[index]).toString(16))
-        beatString = beatString.concat(octaves[index])
-        beatString = beatString.concat([0.25, 0.5, 0.75, 1.0].indexOf(noteLengths[index]))
-
-        chart.forEach((noteIndex, index) => {
-          if (noteIndex !== null && noteIndex !== undefined) {
-            beatString = beatString.concat(index.toString(16).toUpperCase(), noteIndex.toString(16).toUpperCase())
-          }
-        })
-
-        beatString = beatString.concat(';')
-      })
-
-      return beatString.slice(0, -1)
-    }
-
-    const generateNoteFrequency = (multiplier, root) => {
-      let val = root
-
-      for (let i = 0; i < multiplier; i++) {
-        val = val * toneConstant
-      }
-
-      return parseInt(val)
-    }
-
-    const waveFunction = (i) => {
-      switch (i) {
-        case 0:
-          return squareSample
-        case 1:
-          return sineSample
-        case 2:
-          return triangleSample
-        case 3:
-          return fuzzSample
-        default:
-          return squareSample
-      }
-    }
-
-    const generateSlap = (rate) => {
-      const samples = [0.0]
-
-      for (let i = 4; i > 0; i--) {
-        for (let j = 1; j <= rate; j++) {
-          let value
-          const q = rate / 4
-
-          // Math.random() * (max - min) + min
-
-          value = i * (Math.random() * 0.1)
-
-          if (j < q) {
-            if (j > q / 2)
-              value = value * Math.sin(q)
-          } else if (j > q && j < q * 2) {
-            value = -value
-          } else if (j > q * 2 && j < q * 3) {
-            if (j > q * 2 + q / 2)
-              value = value * Math.sin(q)
-          } else {
-            value = -value
-          }
-
-          samples[(4 - i) * j] = value
-        }
-      }
-
-      samples[samples.length] = 0.0
-
-      return samples
-    }
-
-    const generateSound = () => {
-      generateTones()
-      generateBeat()
-      prepareDownload()
-    }
-
-    const generateBeat = () => {
-      let buffering = buffer.getChannelData(0)
-
-      data.filter((el, index) => tones[index] === 4).forEach((beatData, chartIndex) => {
-        beatData.forEach((noteIndex, beatIndex) => {
-          if (noteIndex !== null && noteIndex !== undefined) {
-            let drumFrame
-
-            console.log(Object.keys(drums))
-
-            const key = Object.keys(drums)[noteIndex]
-
-            if (!!key) {
-              drumFrame = drums[key]
-            } else {
-              return
-            }
-
-            let bufferPointer = beatIndex * subBufferSize // start of the "16th" subsection
-            let localIndex = 0
-
-            while (localIndex < drumFrame.length && bufferPointer + localIndex < buffering.length) {
-              let value = buffering[bufferPointer + localIndex] || 0.0
-              
-              value += drumFrame[localIndex]
-
-              if (value > 1.0)
-                value = 1.0
-              else if (value < -1.0)
-                value = -1.0
-
-              buffering[bufferPointer + localIndex] = value
-              localIndex++
-            }
-          }
-        })
-      })
-    }
-
-    const generateDrums = () => {
-      Object.keys(drumData).forEach((drumName) => {
-        drums[drumName] = generateDrum(drumName)
-      })
-    }
-
-    const generateDrum = (drum) => {
-      let drumIndex = 0
-      let sample = []
-
-      drumData[drum].forEach((guidepost, index, arr) => {
-        if (index === arr.length - 1) {
-          sample[guidepost[1]] = guidepost[0]
-        } else {
-          const nextGuidepostIndex = arr[index + 1][1]
-          const interval = (arr[index + 1][0] - guidepost[0]) / (arr[index + 1][1] - guidepost[1])
-
-          if (interval === 0) {
-            console.log('ZERO INT', arr[index - 1], arr[index + 1], guidepost, arr[index + 1][1] - guidepost[1])
-          }
-
-          let localIndex = guidepost[1] + 1
-
-          sample[guidepost[1]] = guidepost[0]
-
-          while(localIndex < nextGuidepostIndex) {
-            // if (index > arr.length - 21) {
-            //   console.log('mano', guidepost, sample[localIndex], sample[localIndex - 1], interval)
-            // }
-            sample[localIndex] = sample[localIndex - 1] + interval
-            localIndex++
-          }
-        }
-      })
-
-      return sample
-    }
-
-    const waveMultiplier = (index, bufferSize, noteLength) => {
-      if (noteLength === 1) {
-        return 1
-      }
-
-      let thing = ((bufferSize * noteLength) - index) / (bufferSize * noteLength)
-
-      return Math.max(0, thing)
-    }
-
-    const generateTones = () => {
-      let buffering = buffer.getChannelData(0)
-      let carryover = 0
-      let waveIndex = 0
-      let freq = 0
-      let samplesPerWave = 0
-      let lastSample = 0
-
-      for (let i = 0; i < buffering.length; i++) {
-        buffering[i] = 0.0
-      }
-
-      data.filter((el, index) => tones[index] !== 4).forEach((beatData, chartIndex) => {
-        let lastIndex = -1
-
-        beatData.forEach((noteIndex, beatIndex) => {
-          if (noteIndex !== null && noteIndex !== undefined) {
-            let bufferPointer = beatIndex * subBufferSize // start of the "16th" subsection
-            let localIndex = 0
-
-            if (lastIndex === beatIndex - 1) {
-              while (carryover > 0) {
-                buffering[bufferPointer + localIndex] = waveFunction(tones[chartIndex])(waveIndex, samplesPerWave, waveMultiplier(localIndex, subBufferSize, noteLengths[chartIndex]))
-                localIndex++
-                waveIndex++
-                carryover--
-              }
-            }
-
-            waveIndex = 0
-            freq = notes[chartIndex][noteIndex]
-            samplesPerWave = parseInt(sampleRate / freq)
-
-            while (localIndex < subBufferSize) {
-              let value = buffering[bufferPointer + localIndex] || 0.0
-
-              let sample = waveFunction(tones[chartIndex])(waveIndex, samplesPerWave, waveMultiplier(localIndex, subBufferSize, noteLengths[chartIndex]))
-
-              value += sample
-
-              if (value > 1.0)
-                value = 1.0
-              else if (value < -1.0)
-                value = -1.0
-
-              buffering[bufferPointer + localIndex] = value
-
-              waveIndex++
-              localIndex++
-              lastIndex = beatIndex
-              lastSample = sample
-
-              if (waveIndex >= samplesPerWave) waveIndex = 0
-            }
-
-            carryover = samplesPerWave - waveIndex
-          }
-        })
-      })
-    }
-    
-    const squareSample = (index, samplesPerWave, multiplier = 1.0) => {
-      return (index <= parseInt(samplesPerWave / 2) ? 0.8 : -0.8) * multiplier
-    }
-
-    const fuzzSample = (index, samplesPerWave, multiplier = 1.0) => {
-      return (index <= parseInt(samplesPerWave / 2) ? Math.random() : Math.random() - 1) * multiplier
-    }
-
-    const triangleSample = (index, samplesPerWave, multiplier = 1.0) => {
-      const halfSamples = parseInt(samplesPerWave / 2)
-      const quarterSamples = parseInt(samplesPerWave / 4)
-      const ramp = 1 / quarterSamples
-      
-      if (index <= halfSamples) {
-        if (index <= quarterSamples) {
-          return index * ramp * multiplier
-        } else {
-          return (halfSamples - index) * ramp * multiplier
-        }
-      } else {
-        if (index <= halfSamples + quarterSamples) {
-          return -((index - halfSamples) * ramp) * multiplier
-        } else {
-          return -((samplesPerWave - index) * ramp) * multiplier
-        }
-      }
-    }
-
-    const sineSample = (index, samplesPerWave, multiplier = 1.0) => {
-      return Math.sin(index / (samplesPerWave / (Math.PI * 2))) * multiplier
-    }
-
-    const play = () => {
-      stop()
-      bufferSource = audioCtx.createBufferSource()
-      bufferSource.connect(audioCtx.destination)
-      bufferSource.buffer = buffer
-      bufferSource.onended = () => { playing = false }
-      bufferSource.start()
-      playing = true
-    }
-
-    const loop = () => {
-      stop()
-      bufferSource = audioCtx.createBufferSource()
-      bufferSource.connect(audioCtx.destination)
-      bufferSource.buffer = buffer
-      bufferSource.onended = () => { playing = false }
-      bufferSource.loop = true
-      bufferSource.start()
-      playing = true
-    }
-
-    const stop = () => {
-      if (!!bufferSource) {
-        try { bufferSource.stop() }
-        catch (e) {}
-      }
-    }
-
     init()
   </script>
 </html>
