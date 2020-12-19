@@ -28,6 +28,8 @@ let audioCtx = new (window.AudioContext || window.webkitAudioContext)()
 let buffer
 let bufferSource
 let bufferSizes = []
+let timeStops = []
+let totalMillis
 
 const generateNoteNames = (startNote) => {
   const noteNames = Object.keys(noteNamesAndFreqs)
@@ -62,10 +64,10 @@ const paintAll = () => {
   pData.forEach((phrase, pIndex) => {
     phrase.forEach((chart, index) => {
       const table = document.querySelector(`#chart${pIndex}-${index}`)
-      const trs = table.querySelectorAll(':scope tbody tr')
+      const trs = table.querySelectorAll('tbody tr')
 
       forEach(trs, (i, tr) => {
-        const tds = tr.querySelectorAll(':scope td')
+        const tds = tr.querySelectorAll('td')
 
         forEach(tds, (j, td) => {
           if (pData[pIndex][index][j] === i) {
@@ -177,7 +179,7 @@ const changeRoot = (e) => {
 const setNoteText = (pIndex, index, note) => {
   const newNotes = generateNoteNames(note)
   const table = document.querySelector(`#chart${pIndex}-${index}`)
-  const trs = table.querySelectorAll(':scope tr')
+  const trs = table.querySelectorAll('tr')
 
   forEach(trs, (rowIndex, tr) => {
     const firstTd = tr.querySelector('td')
@@ -215,10 +217,10 @@ const generateNotes = (pIndex, index) => {
 }
 
 const deleteChart = (e) => {
-  const indexStr = parseInt(e.target.id.slice(6))
+  const indexStr = e.target.id.slice(6)
   const indicies = indexStr.split('-').map(n => parseInt(n))
   const pIndex = indicies[0]
-  const index = indicies[1]
+  let index = indicies[1]
 
   if (pData[pIndex] <= 1) {
     return
@@ -258,6 +260,48 @@ const deleteChart = (e) => {
   history.replaceState(null, '', '?p=' + encodeAll())
 }
 
+const createPhrase = () => {
+  const body = document.querySelector('body')
+  const proto = document.querySelector("div.proto")
+  const pIndex = pData.length
+
+  let phraseContainer = document.createElement('div')
+  phraseContainer.className = 'phrase'
+  phraseContainer.id = `phrase${pIndex}`
+
+  let phraseNo = document.createElement('h2')
+  phraseNo.innerText = pIndex + 1
+
+  let bpmContainer = document.createElement('div')
+  let bpmLabel = document.createElement('label')
+  bpmLabel.for = `bpm${pIndex}`
+  bpmLabel.innerText = 'bpm'
+
+  let bpm = document.createElement('input')
+  bpm.type = 'number'
+  bpm.min = 40
+  bpm.max = 200
+  bpm.value = bpms[pIndex]
+  bpm.id = `bpm${pIndex}`
+  bpm.onchange = changeTempo
+
+  phraseContainer.appendChild(phraseNo)
+  bpmContainer.appendChild(bpmLabel)
+  bpmContainer.appendChild(bpm)
+  phraseContainer.appendChild(bpmContainer)
+
+  body.insertBefore(phraseContainer, proto)
+
+  pData[pIndex] = []
+  tones[pIndex] = []
+  rootNotes[pIndex] = []
+  octaves[pIndex] = []
+  noteLengths[pIndex] = []
+  notes[pIndex] = []
+  bpms[pIndex] = bpms[pIndex - 1]
+  createChart({target: {id: `add${pIndex}`}})
+}
+
 const createChart = (e) => {
   const pIndex = parseInt(e.target.id.slice(3))
   const proto = document.querySelector("div.proto")
@@ -272,23 +316,24 @@ const createChart = (e) => {
   let roo = chartContainer.querySelector('select.root')
   let oct = chartContainer.querySelector('select.octave')
   let ntl = chartContainer.querySelector('select.notelength')
+  let add = phraseContainer.querySelector(`#add${pIndex}`)
 
   chartContainer.classList.remove('proto')
   chartContainer.id = `container${pIndex}-${chartIndex}`
   chart.className = 'pattern'
   chart.id = `chart${pIndex}-${chartIndex}`
   deleteButton.id = `delete${pIndex}-${chartIndex}`
-  deleteButton.onclick = (e) => deleteChart(e)
+  deleteButton.onclick = deleteChart
   lis.id = `inst${pIndex}-${chartIndex}`
-  lis.onchange = (e) => changeTone(e)
+  lis.onchange = changeTone
   roo.id = `root${pIndex}-${chartIndex}`
-  roo.onchange = (e) => changeRoot(e)
+  roo.onchange = changeRoot
   oct.id = `octave${pIndex}-${chartIndex}`
-  oct.onchange = (e) => changeOctave(e)
+  oct.onchange = changeOctave
   ntl.id = `notelength${pIndex}-${chartIndex}`
-  ntl.onchange = (e) => changeNoteLength(e)
+  ntl.onchange = changeNoteLength
 
-  phraseContainer.appendChild(chartContainer)
+  phraseContainer.insertBefore(chartContainer, add)
 
   pData[pIndex][chartIndex] = []
   tones[pIndex][chartIndex] = 1
@@ -303,6 +348,7 @@ const createChart = (e) => {
   setNoteLengths()
   assignCellClicks()
   generateSound()
+  history.replaceState(null, '', '?p=' + encodeAll())
 }
 
 const createCharts = () => {
@@ -320,8 +366,10 @@ const createCharts = () => {
     phraseContainer.className = 'phrase'
     phraseContainer.id = `phrase${pIndex}`
 
-    let bpmContainer = document.createElement('div')
+    let phraseNo = document.createElement('h2')
+    phraseNo.innerText = pIndex + 1
 
+    let bpmContainer = document.createElement('div')
     let bpmLabel = document.createElement('label')
     bpmLabel.for = `bpm${pIndex}`
     bpmLabel.innerText = 'bpm'
@@ -332,10 +380,9 @@ const createCharts = () => {
     bpm.max = 200
     bpm.value = bpms[pIndex]
     bpm.id = `bpm${pIndex}`
-    bpm.onchange = (e) => {
-      changeTempo(e)
-    }
+    bpm.onchange = changeTempo
 
+    phraseContainer.appendChild(phraseNo)
     bpmContainer.appendChild(bpmLabel)
     bpmContainer.appendChild(bpm)
     phraseContainer.appendChild(bpmContainer)
@@ -354,15 +401,15 @@ const createCharts = () => {
       chart.className = 'pattern'
       chart.id = `chart${pIndex}-${chartIndex}`
       deleteButton.id = `delete${pIndex}-${chartIndex}`
-      deleteButton.onclick = (e) => deleteChart(e)
+      deleteButton.onclick = deleteChart
       lis.id = `inst${pIndex}-${chartIndex}`
-      lis.onchange = (e) => changeTone(e)
+      lis.onchange = changeTone
       roo.id = `root${pIndex}-${chartIndex}`
-      roo.onchange = (e) => changeRoot(e)
+      roo.onchange = changeRoot
       oct.id = `octave${pIndex}-${chartIndex}`
-      oct.onchange = (e) => changeOctave(e)
+      oct.onchange = changeOctave
       ntl.id = `notelength${pIndex}-${chartIndex}`
-      ntl.onchange = (e) => changeNoteLength(e)
+      ntl.onchange = changeNoteLength
 
       phraseContainer.appendChild(chartContainer)
     })
@@ -426,11 +473,19 @@ const init = () => {
     phrases.forEach((phrasePatterns, pIndex) => {
       const patterns = phrasePatterns.split(';')
 
+      pData[pIndex] = []
+      tones[pIndex] = []
+      rootNotes[pIndex] = []
+      octaves[pIndex] = []
+      noteLengths[pIndex] = []
+      notes[pIndex] = []
+
       patterns.forEach((pattern, index) => {
         pData[pIndex][index] = []
 
         if (!!pattern) {
           bpms[pIndex] = parseInt(pattern.slice(0, 2), 16)
+
           const tone = parseInt(pattern[2])
           const rootNote = Object.keys(noteNamesAndFreqs)[parseInt(pattern[3], 16)]
           const octave = parseInt(pattern[4])
@@ -495,14 +550,15 @@ const assignCellClicks = () => {
 
   forEach(phrases, (_, phrase) => {
     const pIndex = parseInt(phrase.id.slice(6))
-    const tables = phrase.querySelectorAll(':scope table')
+    const tables = phrase.querySelectorAll('table')
 
     forEach(tables, (_, table) => {
-      const trs = table.querySelectorAll(':scope tr')
-      const tableIndex = parseInt(table.id.slice(5))
+      const trs = table.querySelectorAll('tr')
+      const indexStr = table.id.slice(5)
+      const tableIndex = parseInt(indexStr.split('-')[1])
 
       forEach(trs, (rowIndex, tr) => {
-        const tds = tr.querySelectorAll(':scope td')
+        const tds = tr.querySelectorAll('td')
 
         forEach(tds, (dataIndex, td) => {
           td.onclick = (e) => {
@@ -511,9 +567,9 @@ const assignCellClicks = () => {
             else
               pData[pIndex][tableIndex][dataIndex] = rowIndex
 
-            history.replaceState(null, '', '?p=' + encodeAll())
             paintAll()
             generateSound()
+            history.replaceState(null, '', '?p=' + encodeAll())
           }
         })
       })
@@ -642,18 +698,24 @@ const generateSound = () => {
   let bSize = 0
   let beatsPerMeasure = 4
 
+  bufferSizes = []
+  timeStops = []
+  totalMillis = 0
+
   pData.forEach((phrase, pIndex) => {
     let pbpm = bpms[pIndex]
     let beatsPerSecond = pbpm / 60.0
     let secondsPerBeat = 1.0 / beatsPerSecond
     let seconds = secondsPerBeat * beatsPerMeasure
+    let millis = Math.round(seconds * 1000)
     let phraseBufferSize = parseInt(seconds * sampleRate)
-    bufferSizes[pIndex] = phraseBufferSize
 
+    bufferSizes[pIndex] = phraseBufferSize
+    totalMillis += millis
+    timeStops[pIndex] = totalMillis
     bSize += phraseBufferSize
   })
 
-  console.log(bSize)
   buffer = audioCtx.createBuffer(1, bSize, sampleRate)
 
   generateTones()
@@ -675,10 +737,10 @@ const gatherColumns = () => {
   for (let i = 0; i < pData.length; i++) {
     for (let j = 0; j < pData[i].length; j++) {
       const table = document.querySelector(`#chart${i}-${j}`)
-      const trs = table.querySelectorAll(':scope tbody tr')
+      const trs = table.querySelectorAll('tbody tr')
 
       forEach(trs, (k, tr) => {
-        const tds = tr.querySelectorAll(':scope td')
+        const tds = tr.querySelectorAll('td')
 
         forEach(tds, (l, td) => {
           columns[i][j].push(td)
@@ -710,7 +772,8 @@ const generateTones = () => {
   }
 
   pData.forEach((phrase, pIndex) => {
-    let subBufferSize = bufferSizes[pIndex]
+    let bufferSize = bufferSizes[pIndex]
+    let subBufferSize = Math.round(bufferSize / 16) // just doing 16th notes in 4/4 FOR NOW
 
     phrase.forEach((beatData, chartIndex) => {
       let lastIndex = -1
@@ -769,7 +832,7 @@ const generateTones = () => {
       })
     })
 
-    offset += subBufferSize
+    offset += bufferSize
   })
 
 
@@ -817,6 +880,7 @@ let millisPer16th // = (seconds / 16) * 1000
 let interval // = Math.floor(millisPer16th)
 let lastPlayheadPhrase
 let lastPlayheadIndex
+let hIndex = 0
 
 const highlightColumn = () => {
   const elapsedTime = Date.now() - timerStart
@@ -841,6 +905,19 @@ const highlightColumn = () => {
   }
 }
 
+const highlightPhrase = () => {
+  const elapsedTime = Date.now() - timerStart
+  const millis = elapsedTime % totalMillis
+  const lastIndex = hIndex
+
+  hIndex = timeStops.findIndex(n => millis < n)
+
+  if (lastIndex !== hIndex)
+    document.querySelector(`#phrase${lastIndex}`).classList.remove('tan')
+
+  document.querySelector(`#phrase${hIndex}`).classList.add('tan')
+}
+
 const loop = () => {
   stop()
   bufferSource = audioCtx.createBufferSource()
@@ -849,8 +926,8 @@ const loop = () => {
   bufferSource.onended = () => { playing = false }
   bufferSource.loop = true
   playing = true
-  // timerId = setInterval(highlightColumn, interval)
-  // timerStart = Date.now()
+  timerId = setInterval(highlightPhrase, interval)
+  timerStart = Date.now()
   bufferSource.start()
 }
 
@@ -859,9 +936,11 @@ const stop = () => {
     try {
       bufferSource.stop()
 
-      // clearInterval(timerId)
-      // timerId = null
-      // timerStart = null
+      clearInterval(timerId)
+      timerId = null
+      timerStart = null
+
+      document.querySelector(`#phrase${hIndex}`).classList.remove('tan')
 
       // columns[lastPlayheadPhrase][lastPlayheadIndex].forEach(td => {
       //   td.classList.remove("tan")

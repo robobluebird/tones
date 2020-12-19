@@ -2,8 +2,16 @@
   <head>
     <!-- <script src="drums.js"></script> -->
     <style>
+      .tan {
+        background-color: antiquewhite;
+      }
+
+      h2 {
+        display: inline-block;
+      }
+
       .phrase {
-        padding: 20px 0 20px 0;
+        padding: 0 0 20px 0;
         border-bottom: 1px dashed black;
       }
 
@@ -39,6 +47,16 @@
         vertical-align: top;
         line-height: 310px;
         cursor: pointer;
+        background-color: #EEEEEE;
+      }
+
+      #addphrase {
+        margin: 20px;
+        cursor: pointer;
+        font-size: 80px;
+        height: 80px;
+        line-height: 80px;
+        text-align: center;
         background-color: #EEEEEE;
       }
 
@@ -215,7 +233,7 @@
         background-color: lightgray;
       } 
     </style>
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <title>quick loops</title>
   </head>
   <body>
@@ -280,6 +298,7 @@
       </select>
       </select>
     </div>
+    <div id="addphrase" onclick="createPhrase()">+</div>
   </body>
   <script src="tones.js"></script>
   <script type="text/javascript">
