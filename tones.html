@@ -1,22 +1,13 @@
 <html>
   <head>
-    <!-- <script src="drums.js"></script> -->
     <style>
       .tan {
         background-color: antiquewhite;
       }
 
-      h2 {
-        display: inline-block;
-      }
-
       .phrase {
         padding: 0 0 20px 0;
         border-bottom: 1px dashed black;
-      }
-
-      .phrase:last-child {
-        border-bottom: 0;
       }
 
       .error {
@@ -72,148 +63,149 @@
         display: none;
       }
 
-      table.pattern {
+      table.grid {
         cursor: pointer;
       }
 
-      table.pattern td {
+      table.grid td {
         width: 20px;
         height: 20px;
+        color: #777;
       }
 
-      table.pattern tr:nth-child(odd) td:nth-child(2n) {
+      table.grid tr:nth-child(odd) td:nth-child(2n) {
         background-color: #CCCCCC;
       }
 
-      table.pattern tr:nth-child(odd) td:nth-child(2n+1) {
+      table.grid tr:nth-child(odd) td:nth-child(2n+1) {
         background-color: #EEEEEE;
       }
 
-      table.pattern tr:nth-child(even) td:nth-child(even) {
+      table.grid tr:nth-child(even) td:nth-child(even) {
         background-color: #EEEEEE;
       }
 
-      table.pattern tr:nth-child(even) td:nth-child(odd) {
+      table.grid tr:nth-child(even) td:nth-child(odd) {
         background-color: #CCCCCC;
       }
 
-      table.pattern tr:nth-child(odd) td.on {
+      table.grid tr:nth-child(odd) td.on {
         background-color: red;
       }
 
-      table.pattern tr:nth-child(even) td.on {
+      table.grid tr:nth-child(even) td.on {
         background-color: red;
       }
 
-      table.pattern tr:nth-child(odd) td.black {
+      table.grid tr:nth-child(odd) td.black {
         background-color: black;
       }
 
-      table.pattern tr:nth-child(even) td.black {
+      table.grid tr:nth-child(even) td.black {
         background-color: black;
       }
 
-      table.pattern tr:nth-child(odd) td.tan {
+      table.grid tr:nth-child(odd) td.tan {
         background-color: antiquewhite;
       }
 
-      table.pattern tr:nth-child(even) td.tan {
+      table.grid tr:nth-child(even) td.tan {
         background-color: antiquewhite;
       }
 
-      table.pattern tr:nth-child(odd) td.red {
+      table.grid tr:nth-child(odd) td.red {
         background-color: red;
       }
 
-      table.pattern tr:nth-child(odd) td.purple {
+      table.grid tr:nth-child(odd) td.purple {
         background-color: purple;
       }
 
-      table.pattern tr:nth-child(odd) td.blue {
+      table.grid tr:nth-child(odd) td.blue {
         background-color: blue;
       }
 
-      table.pattern tr:nth-child(odd) td.green {
+      table.grid tr:nth-child(odd) td.green {
         background-color: green;
       }
 
-      table.pattern tr:nth-child(odd) td.orange {
+      table.grid tr:nth-child(odd) td.orange {
         background-color: orange;
       }
 
-      table.pattern tr:nth-child(even) td.red {
+      table.grid tr:nth-child(even) td.red {
         background-color: red;
       }
 
-      table.pattern tr:nth-child(even) td.purple {
+      table.grid tr:nth-child(even) td.purple {
         background-color: purple;
       }
 
-      table.pattern tr:nth-child(even) td.blue {
+      table.grid tr:nth-child(even) td.blue {
         background-color: blue;
       }
 
-      table.pattern tr:nth-child(even) td.green {
+      table.grid tr:nth-child(even) td.green {
         background-color: green;
       }
 
-      table.pattern tr:nth-child(even) td.orange {
+      table.grid tr:nth-child(even) td.orange {
         background-color: orange;
       }
 
-      table.pattern tr:nth-child(odd) td:hover {
+      table.grid tr:nth-child(odd) td:hover {
         background-color: #AAAAAA;
       }
 
-      table.pattern tr:nth-child(even) td:hover {
+      table.grid tr:nth-child(even) td:hover {
         background-color: #AAAAAA;
       }
 
-      table.pattern tr:nth-child(odd) td:hover.black {
+      table.grid tr:nth-child(odd) td:hover.black {
         background-color: black;
       }
 
-      table.pattern tr:nth-child(odd) td:hover.tan {
+      table.grid tr:nth-child(odd) td:hover.tan {
         background-color: antiquewhite;
       }
 
-      table.pattern tr:nth-child(odd) td:hover.red {
+      table.grid tr:nth-child(odd) td:hover.red {
         background-color: red;
       }
 
-      table.pattern tr:nth-child(odd) td:hover.purple {
+      table.grid tr:nth-child(odd) td:hover.purple {
         background-color: purple;
       }
 
-      table.pattern tr:nth-child(odd) td:hover.blue {
+      table.grid tr:nth-child(odd) td:hover.blue {
         background-color: blue;
       }
 
-      table.pattern tr:nth-child(odd) td:hover.green {
+      table.grid tr:nth-child(odd) td:hover.green {
         background-color: green;
       }
 
-      table.pattern tr:nth-child(odd) td:hover.orange {
+      table.grid tr:nth-child(odd) td:hover.orange {
         background-color: orange;
       }
 
-      table.pattern tr:nth-child(even) td:hover.red {
+      table.grid tr:nth-child(even) td:hover.red {
         background-color: red;
       }
 
-      table.pattern tr:nth-child(even) td:hover.purple {
+      table.grid tr:nth-child(even) td:hover.purple {
         background-color: purple;
       }
 
-      table.pattern tr:nth-child(even) td:hover.blue {
+      table.grid tr:nth-child(even) td:hover.blue {
         background-color: blue;
       }
 
-      table.pattern tr:nth-child(even) td:hover.green {
+      table.grid tr:nth-child(even) td:hover.green {
         background-color: green;
       }
 
-      table.pattern tr:nth-child(even) td:hover.orange {
+      table.grid tr:nth-child(even) td:hover.orange {
         background-color: orange;
       }
 
@@ -238,10 +230,25 @@
   </head>
   <body>
     <div style="text-align: center">
-      <button class="action" onclick="loop()">loop</button>
+      <button class="action" onclick="play()">play</button>
       <button class="action" onclick="stop()">stop</button>
-      <div class="space"></div>
       <a id="download" href="#">download .wav</a>
+    </div>
+    <div>
+      <h2>sequence</h2>
+      <div id="sequence">
+        <select class="step">
+          <option value>-</option>
+          <option selected value=1>1</option>
+        </select>
+        <select class="step">
+          <option selected value>-</option>
+          <option>1</option>
+        </select>
+      </div>
+    </div>
+    <h2>phrases</h2>
+    <div class="phrases">
     </div>
     <div class="cont chartContainer proto">
       <table>
@@ -265,21 +272,7 @@
         <option selected value=1>sine</option>
         <option value=2>triangle</option>
         <option value=3>fuzz</option>
-        <!-- <option value=4>drums</option> -->
       <select>
-      <select class="root">
-        <option selected value="C">C</option>
-        <option value="C#">C#</option>
-        <option value="D">D</option>
-        <option value="D#">D#</option>
-        <option value="E">E</option>
-        <option value="F">F</option>
-        <option value="G">G</option>
-        <option value="G#">G#</option>
-        <option value="A">A</option>
-        <option value="A#">A#</option>
-        <option value="B">B</option>
-      </select>
       <select class="octave">
         <option value=1>1</option>
         <option value=2>2</option>

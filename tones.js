@@ -4,7 +4,7 @@ const notes = [[]]
 const sampleRate = 22050
 const pData = [[]]
 const tones = [[]]
-const rootNotes = [[]]
+const rootNotes = []
 const octaves = [[]]
 const noteLengths = [[]]
 const noteNamesAndFreqs = {
@@ -22,6 +22,7 @@ const noteNamesAndFreqs = {
   B: 494
 }
 
+let sequence = [1]
 let columns = []
 let playing = false
 let audioCtx = new (window.AudioContext || window.webkitAudioContext)()
@@ -29,7 +30,10 @@ let buffer
 let bufferSource
 let bufferSizes = []
 let timeStops = []
+let millisPer16ths = []
 let totalMillis
+let sampleNotes = []
+let sequenceSelects = []
 
 const generateNoteNames = (startNote) => {
   const noteNames = Object.keys(noteNamesAndFreqs)
@@ -112,7 +116,7 @@ const changeTempo = (e) => {
   generateSound()
 
   if (restart) {
-    loop()
+    play()
   }
 
   history.replaceState(null, '', '?p=' + encodeAll())
@@ -129,6 +133,7 @@ const changeTone = (e) => {
   history.replaceState(null, '', '?p=' + encodeAll())
   paintAll()
   generateSound()
+  generateSampleTones()
 }
 
 const changeOctave = (e) => {
@@ -143,6 +148,7 @@ const changeOctave = (e) => {
   generateNotes(pIndex, index)
   paintAll()
   generateSound()
+  generateSampleTones()
 }
 
 const changeNoteLength = (e) => {
@@ -157,38 +163,46 @@ const changeNoteLength = (e) => {
   generateNotes(pIndex, index)
   paintAll()
   generateSound()
+  generateSampleTones()
 }
 
 const changeRoot = (e) => {
   const note = e.target.value
-  const indexStr = e.target.id.slice(4)
-  const indicies = indexStr.split('-').map(n => parseInt(n))
-  const pIndex = indicies[0]
-  const index = indicies[1]
+  const pIndex = parseInt(e.target.id.slice(3))
 
-  setNoteText(pIndex, index, note)
+  setNoteText(pIndex, note)
 
-  rootNotes[pIndex][index] = note
+  rootNotes[pIndex] = note
 
   history.replaceState(null, '', '?p=' + encodeAll())
-  generateNotes(pIndex, index)
+
+  for (let i = 0; i < pData[pIndex].length; i++) {
+    generateNotes(pIndex, i)
+  }
+
   paintAll()
   generateSound()
+  generateSampleTones()
 }
 
-const setNoteText = (pIndex, index, note) => {
+const setNoteText = (pIndex, note) => {
   const newNotes = generateNoteNames(note)
-  const table = document.querySelector(`#chart${pIndex}-${index}`)
-  const trs = table.querySelectorAll('tr')
 
-  forEach(trs, (rowIndex, tr) => {
-    const firstTd = tr.querySelector('td')
+  const phrase = document.querySelector(`#phrase${pIndex}`)
+  const tables = phrase.querySelectorAll('table')
 
-    if (rowIndex < newNotes.length) {
-      firstTd.innerText = newNotes[rowIndex]
-    } else {
-      firstTd.innerText = newNotes[0]
-    }
+  forEach(tables, (tableIndex, table) => {
+    const trs = table.querySelectorAll('tr')
+
+    forEach(trs, (rowIndex, tr) => {
+      const firstTd = tr.querySelector('td')
+
+      if (rowIndex < newNotes.length) {
+        firstTd.innerText = newNotes[rowIndex]
+      } else {
+        firstTd.innerText = newNotes[0]
+      }
+    })
   })
 }
 
@@ -203,7 +217,7 @@ const generateNotes = (pIndex, index) => {
     octaveShiftCount = octaves[pIndex][index] - 4
   }
 
-  let rootValue = noteNamesAndFreqs[rootNotes[pIndex][index]]
+  let rootValue = noteNamesAndFreqs[rootNotes[pIndex]]
   for (let i = 0; i < octaveShiftCount; i++) {
     rootValue = rootValue * octaveShift 
   }
@@ -230,7 +244,6 @@ const deleteChart = (e) => {
 
   pData[pIndex].splice(index, 1)
   tones[pIndex].splice(index, 1)
-  rootNotes[pIndex].splice(index, 1)
   octaves[pIndex].splice(index, 1)
   noteLengths[pIndex].splice(index, 1)
   notes[pIndex].splice(index, 1)
@@ -240,7 +253,6 @@ const deleteChart = (e) => {
     let tab = cont.querySelector(`#chart${pIndex}-${index + 1}`)
     let del = cont.querySelector('button.delete')
     let lis = cont.querySelector('select.tone')
-    let roo = cont.querySelector('select.root')
     let oct = cont.querySelector('select.octave')
     let ntl = cont.querySelector('select.notelength')
 
@@ -248,7 +260,6 @@ const deleteChart = (e) => {
     tab.id = `chart${pIndex}-${index}`
     del.id = `delete${pIndex}-${index}`
     lis.id = `inst${pIndex}-${index}`
-    roo.id = `root${pIndex}-${index}`
     oct.id = `octave${pIndex}-${index}`
     ntl.id = `notelength${pIndex}-${index}`
 
@@ -257,11 +268,12 @@ const deleteChart = (e) => {
 
   assignCellClicks()
   generateSound()
+  gatherColumns()
   history.replaceState(null, '', '?p=' + encodeAll())
 }
 
 const createPhrase = () => {
-  const body = document.querySelector('body')
+  const phrases = document.querySelector('.phrases')
   const proto = document.querySelector("div.proto")
   const pIndex = pData.length
 
@@ -269,7 +281,7 @@ const createPhrase = () => {
   phraseContainer.className = 'phrase'
   phraseContainer.id = `phrase${pIndex}`
 
-  let phraseNo = document.createElement('h2')
+  let phraseNo = document.createElement('h3')
   phraseNo.innerText = pIndex + 1
 
   let bpmContainer = document.createElement('div')
@@ -281,20 +293,44 @@ const createPhrase = () => {
   bpm.type = 'number'
   bpm.min = 40
   bpm.max = 200
-  bpm.value = bpms[pIndex]
+  bpm.value = bpms[pIndex - 1]
   bpm.id = `bpm${pIndex}`
   bpm.onchange = changeTempo
+
+  let keyLabel = document.createElement('label')
+  keyLabel.for = `key${pIndex}`
+  keyLabel.innerText = 'key'
+
+  let keySelect = document.createElement('select')
+  keySelect.id = `key${pIndex}`
+  keySelect.onchange = changeRoot
+
+  Object.keys(noteNamesAndFreqs).forEach(name => {
+    let keyOpt = document.createElement('option')
+    keyOpt.text = name
+    keyOpt.value = name
+    keySelect.add(keyOpt)
+  })
+
+  let add = document.createElement('div')
+  add.className = 'add'
+  add.id = `add${pIndex}`
+  add.onclick = createChart
+  add.innerText = '+'
 
   phraseContainer.appendChild(phraseNo)
   bpmContainer.appendChild(bpmLabel)
   bpmContainer.appendChild(bpm)
+  bpmContainer.appendChild(keyLabel)
+  bpmContainer.appendChild(keySelect)
   phraseContainer.appendChild(bpmContainer)
 
-  body.insertBefore(phraseContainer, proto)
+  phraseContainer.appendChild(add)
+  phrases.appendChild(phraseContainer)
 
   pData[pIndex] = []
   tones[pIndex] = []
-  rootNotes[pIndex] = []
+  rootNotes[pIndex] = 'C'
   octaves[pIndex] = []
   noteLengths[pIndex] = []
   notes[pIndex] = []
@@ -305,7 +341,7 @@ const createPhrase = () => {
 const createChart = (e) => {
   const pIndex = parseInt(e.target.id.slice(3))
   const proto = document.querySelector("div.proto")
-  const body = document.querySelector('body')
+  const phrases = document.querySelector('.phrases')
   const chartIndex = pData[pIndex].length
 
   let phraseContainer = document.querySelector(`#phrase${pIndex}`)
@@ -313,21 +349,18 @@ const createChart = (e) => {
   let chart = chartContainer.querySelector('table')
   let deleteButton = chartContainer.querySelector('button.delete')
   let lis = chartContainer.querySelector('select.tone')
-  let roo = chartContainer.querySelector('select.root')
   let oct = chartContainer.querySelector('select.octave')
   let ntl = chartContainer.querySelector('select.notelength')
   let add = phraseContainer.querySelector(`#add${pIndex}`)
 
   chartContainer.classList.remove('proto')
   chartContainer.id = `container${pIndex}-${chartIndex}`
-  chart.className = 'pattern'
+  chart.className = 'grid'
   chart.id = `chart${pIndex}-${chartIndex}`
   deleteButton.id = `delete${pIndex}-${chartIndex}`
   deleteButton.onclick = deleteChart
   lis.id = `inst${pIndex}-${chartIndex}`
   lis.onchange = changeTone
-  roo.id = `root${pIndex}-${chartIndex}`
-  roo.onchange = changeRoot
   oct.id = `octave${pIndex}-${chartIndex}`
   oct.onchange = changeOctave
   ntl.id = `notelength${pIndex}-${chartIndex}`
@@ -337,7 +370,6 @@ const createChart = (e) => {
 
   pData[pIndex][chartIndex] = []
   tones[pIndex][chartIndex] = 1
-  rootNotes[pIndex][chartIndex] = 'C'
   octaves[pIndex][chartIndex] = 3
   noteLengths[pIndex][chartIndex] = 1.0
   generateNotes(pIndex, chartIndex)
@@ -348,12 +380,13 @@ const createChart = (e) => {
   setNoteLengths()
   assignCellClicks()
   generateSound()
+  gatherColumns()
   history.replaceState(null, '', '?p=' + encodeAll())
 }
 
 const createCharts = () => {
   const proto = document.querySelector("div.proto")
-  const body = document.querySelector('body')
+  const phrases = document.querySelector('.phrases')
 
   pData.forEach(phrase => {
     if (phrase.length === 0) {
@@ -366,7 +399,7 @@ const createCharts = () => {
     phraseContainer.className = 'phrase'
     phraseContainer.id = `phrase${pIndex}`
 
-    let phraseNo = document.createElement('h2')
+    let phraseNo = document.createElement('h3')
     phraseNo.innerText = pIndex + 1
 
     let bpmContainer = document.createElement('div')
@@ -382,9 +415,26 @@ const createCharts = () => {
     bpm.id = `bpm${pIndex}`
     bpm.onchange = changeTempo
 
+    let keyLabel = document.createElement('label')
+    keyLabel.for = `key${pIndex}`
+    keyLabel.innerText = 'key'
+
+    let keySelect = document.createElement('select')
+    keySelect.id = `key${pIndex}`
+    keySelect.onchange = changeRoot
+
+    Object.keys(noteNamesAndFreqs).forEach(name => {
+      let keyOpt = document.createElement('option')
+      keyOpt.text = name
+      keyOpt.value = name
+      keySelect.add(keyOpt)
+    })
+
     phraseContainer.appendChild(phraseNo)
     bpmContainer.appendChild(bpmLabel)
     bpmContainer.appendChild(bpm)
+    bpmContainer.appendChild(keyLabel)
+    bpmContainer.appendChild(keySelect)
     phraseContainer.appendChild(bpmContainer)
 
     phrase.forEach((_, chartIndex) => {
@@ -392,20 +442,17 @@ const createCharts = () => {
       let chart = chartContainer.querySelector('table')
       let deleteButton = chartContainer.querySelector('button.delete')
       let lis = chartContainer.querySelector('select.tone')
-      let roo = chartContainer.querySelector('select.root')
       let oct = chartContainer.querySelector('select.octave')
       let ntl = chartContainer.querySelector('select.notelength')
 
       chartContainer.classList.remove('proto')
       chartContainer.id = `container${pIndex}-${chartIndex}`
-      chart.className = 'pattern'
+      chart.className = 'grid'
       chart.id = `chart${pIndex}-${chartIndex}`
       deleteButton.id = `delete${pIndex}-${chartIndex}`
       deleteButton.onclick = deleteChart
       lis.id = `inst${pIndex}-${chartIndex}`
       lis.onchange = changeTone
-      roo.id = `root${pIndex}-${chartIndex}`
-      roo.onchange = changeRoot
       oct.id = `octave${pIndex}-${chartIndex}`
       oct.onchange = changeOctave
       ntl.id = `notelength${pIndex}-${chartIndex}`
@@ -421,8 +468,7 @@ const createCharts = () => {
     add.innerText = '+'
 
     phraseContainer.appendChild(add)
-
-    body.insertBefore(phraseContainer, proto)
+    phrases.appendChild(phraseContainer)
   })
 }
 
@@ -436,12 +482,10 @@ const setInsts = () => {
 }
 
 const setRoots = () => {
-  pData.forEach((phrase, pIndex) => {
-    rootNotes[pIndex].forEach((root, index) => {
-      let r = document.querySelector(`#root${pIndex}-${index}`)
-      r.value = root
-      setNoteText(pIndex, index, root)
-    })
+  rootNotes.forEach((root, index) => {
+    let r = document.querySelector(`#key${index}`)
+    r.value = root
+    setNoteText(index, root)
   })
 }
 
@@ -463,6 +507,52 @@ const setNoteLengths = () => {
   })
 }
 
+const changeSequence = (e) => {
+  let index = parseInt(e.target.id.slice(4))
+
+  if (e.target.value === '-') {
+    if (index < sequence.length - 1) {
+      sequence = sequence.slice(0, index)
+    }
+  } else {
+    sequence[index] = parseInt(e.target.value)
+  }
+
+  remakeSequenceSelects()
+  generateSound()
+  history.replaceState(null, '', '?p=' + encodeAll())
+}
+
+const remakeSequenceSelects = () => {
+  sequenceSelects = []
+
+  let sequenceSteps = document.querySelector('#sequence')
+
+  while (sequenceSteps.firstChild) sequenceSteps.removeChild(sequenceSteps.lastChild)
+
+  sequence.concat('-').forEach((ps, index) => {
+    let select = document.createElement('select')
+    select.className = 'step'
+    select.id = `step${index}`
+
+    let opt = document.createElement('option')
+    opt.text = '-'
+    select.add(opt)
+
+    for (let i = 1; i <= pData.length; i++) {
+      let opt = document.createElement('option')
+      opt.value = i
+      opt.text = i
+      select.add(opt)
+    }
+
+    select.value = ps
+    select.onchange = changeSequence
+    sequenceSteps.appendChild(select)
+    sequenceSelects.push(select)
+  })
+}
+
 const init = () => {
   const params = (new URL(document.location)).searchParams
   const phraseParam = params.get('p')
@@ -470,12 +560,16 @@ const init = () => {
   if (phraseParam !== null && phraseParam !== undefined) {
     const phrases = phraseParam.split('|')
 
+    sequence = phrases.shift().split('').map(n => parseInt(n, 16))
+
     phrases.forEach((phrasePatterns, pIndex) => {
       const patterns = phrasePatterns.split(';')
 
+      const pattern = patterns.shift()
+      bpms[pIndex] = parseInt(pattern.slice(0, 2), 16)
+      rootNotes[pIndex] = Object.keys(noteNamesAndFreqs)[parseInt(pattern[2], 16)]
       pData[pIndex] = []
       tones[pIndex] = []
-      rootNotes[pIndex] = []
       octaves[pIndex] = []
       noteLengths[pIndex] = []
       notes[pIndex] = []
@@ -484,21 +578,17 @@ const init = () => {
         pData[pIndex][index] = []
 
         if (!!pattern) {
-          bpms[pIndex] = parseInt(pattern.slice(0, 2), 16)
-
-          const tone = parseInt(pattern[2])
-          const rootNote = Object.keys(noteNamesAndFreqs)[parseInt(pattern[3], 16)]
-          const octave = parseInt(pattern[4])
-          const noteLength = parseFloat([0.25, 0.5, 0.75, 1.0][parseInt(pattern[5])])
+          const tone = parseInt(pattern[0])
+          const octave = parseInt(pattern[1])
+          const noteLength = parseFloat([0.25, 0.5, 0.75, 1.0][parseInt(pattern[2])])
 
           tones[pIndex][index] = tone
-          rootNotes[pIndex][index] = rootNote
           octaves[pIndex][index] = octave
           noteLengths[pIndex][index] = noteLength
           generateNotes(pIndex, index)
 
-          if (pattern.length > 6) {
-            pattern.slice(6)
+          if (pattern.length > 3) {
+            pattern.slice(3)
             .split('')
             .reduce((result, value, i, array) => {
               if (i % 2 === 0)
@@ -515,9 +605,10 @@ const init = () => {
       })
     })
   } else {
+    sequence = [1]
     bpms[0] = 110
     tones[0][0] = 1
-    rootNotes[0][0] = 'C'
+    rootNotes[0] = 'C'
     octaves[0][0] = 3
     noteLengths[0][0] = 1.0
     generateNotes(0, 0)
@@ -529,8 +620,11 @@ const init = () => {
   setInsts()
   setRoots()
   setOctaves()
+  remakeSequenceSelects()
   setNoteLengths()
   generateSound()
+  generateSampleTones()
+  gatherColumns()
 
   document.onkeydown = (e) => {
     if (e.code === "Space") {
@@ -539,7 +633,7 @@ const init = () => {
       if (playing) {
         stop()
       } else {
-        loop()
+        play()
       }
     }
   }
@@ -562,10 +656,16 @@ const assignCellClicks = () => {
 
         forEach(tds, (dataIndex, td) => {
           td.onclick = (e) => {
-            if (pData[pIndex][tableIndex][dataIndex] === rowIndex)
+            if (pData[pIndex][tableIndex][dataIndex] === rowIndex) {
               pData[pIndex][tableIndex][dataIndex] = null
-            else
+            } else {
               pData[pIndex][tableIndex][dataIndex] = rowIndex
+
+              bufferSource = audioCtx.createBufferSource()
+              bufferSource.connect(audioCtx.destination)
+              bufferSource.buffer = sampleTones[pIndex][tableIndex][rowIndex]
+              bufferSource.start()
+            }
 
             paintAll()
             generateSound()
@@ -581,7 +681,7 @@ const prepareDownload = () => {
   const newFile = URL.createObjectURL(bufferToWave(buffer, buffer.length))
   const link = document.querySelector('#download')
   link.href = newFile
-  link.download = "loop.wav"
+  link.download = "quickloop.wav"
 }
 
 // Convert AudioBuffer to a Blob using WAVE representation
@@ -643,13 +743,15 @@ function bufferToWave(abuffer, len) {
 }
 
 const encodeAll = () => {
-  let beatString = ''
+  let beatString = sequence.map(s => s.toString(16)).join('').concat('|')
 
   pData.forEach((phrase, pIndex) => {
+    beatString = beatString.concat(bpms[pIndex].toString(16).toUpperCase().padStart(2, '0'))
+    beatString = beatString.concat(Object.keys(noteNamesAndFreqs).indexOf(rootNotes[pIndex]).toString(16))
+    beatString = beatString.concat(';')
+
     phrase.forEach((data, index) => {
-      beatString = beatString.concat(bpms[pIndex].toString(16).toUpperCase().padStart(2, '0'))
       beatString = beatString.concat(tones[pIndex][index])
-      beatString = beatString.concat(Object.keys(noteNamesAndFreqs).indexOf(rootNotes[pIndex][index]).toString(16))
       beatString = beatString.concat(octaves[pIndex][index])
       beatString = beatString.concat([0.25, 0.5, 0.75, 1.0].indexOf(noteLengths[pIndex][index]))
 
@@ -700,19 +802,23 @@ const generateSound = () => {
 
   bufferSizes = []
   timeStops = []
+  millisPer16ths = []
   totalMillis = 0
 
-  pData.forEach((phrase, pIndex) => {
+  sequence.forEach((seqNo, index) => {
+    let pIndex = seqNo - 1
     let pbpm = bpms[pIndex]
     let beatsPerSecond = pbpm / 60.0
     let secondsPerBeat = 1.0 / beatsPerSecond
     let seconds = secondsPerBeat * beatsPerMeasure
     let millis = Math.round(seconds * 1000)
     let phraseBufferSize = parseInt(seconds * sampleRate)
+    let interval = Math.round(millis / 16)
 
     bufferSizes[pIndex] = phraseBufferSize
     totalMillis += millis
-    timeStops[pIndex] = totalMillis
+    timeStops[index] = totalMillis
+    millisPer16ths[index] = interval
     bSize += phraseBufferSize
   })
 
@@ -720,7 +826,6 @@ const generateSound = () => {
 
   generateTones()
   prepareDownload()
-  gatherColumns()
 }
 
 const gatherColumns = () => {
@@ -743,7 +848,7 @@ const gatherColumns = () => {
         const tds = tr.querySelectorAll('td')
 
         forEach(tds, (l, td) => {
-          columns[i][j].push(td)
+          columns[i][l].push(td)
         })
       })
     }
@@ -756,6 +861,57 @@ const waveMultiplier = (index, bufferSize, noteLength) => {
   let thing = ((bufferSize * noteLength) - index) / (bufferSize * noteLength)
 
   return Math.max(0, thing)
+}
+
+const generateSampleTones = () => {
+  sampleTones = []
+
+  for (let i = 0; i < pData.length; i++) {
+    sampleTones[i] = []
+
+    let bufferSize = bufferSizes[i]
+    let subBufferSize = Math.round(bufferSize / 16) // just doing 16th notes in 4/4 FOR NOW
+
+    for (let j = 0; j < notes[i].length; j++) {
+      sampleTones[i][j] = []
+
+      for (let k = 0; k < notes[i][j].length; k++) {
+        let buffer = audioCtx.createBuffer(1, subBufferSize, sampleRate)
+        let buffering = buffer.getChannelData(0)
+
+        for (let i = 0; i < buffering.length; i++) {
+          buffering[i] = 0.0
+        }
+
+        let freq = notes[i][j][k]
+        let samplesPerWave = parseInt(sampleRate / freq)
+        let localIndex = 0
+        let waveIndex = 0
+
+        while (localIndex < subBufferSize) {
+          let value = buffering[localIndex] || 0.0
+          let waveMulti = waveMultiplier(localIndex, subBufferSize, noteLengths[i][j])
+          let sample = waveFunction(tones[i][j])(waveIndex, samplesPerWave, waveMulti)
+
+          value += sample
+
+          if (value > 1.0)
+            value = 1.0
+          else if (value < -1.0)
+            value = -1.0
+
+          buffering[localIndex] = value
+
+          waveIndex++
+          localIndex++
+
+          if (waveIndex >= samplesPerWave) waveIndex = 0
+        }
+
+        sampleTones[i][j][k] = buffer
+      }
+    }
+  }
 }
 
 const generateTones = () => {
@@ -771,7 +927,9 @@ const generateTones = () => {
     buffering[i] = 0.0
   }
 
-  pData.forEach((phrase, pIndex) => {
+  sequence.forEach((seqNo, index) => {
+    let pIndex = seqNo - 1
+    let phrase = pData[pIndex]
     let bufferSize = bufferSizes[pIndex]
     let subBufferSize = Math.round(bufferSize / 16) // just doing 16th notes in 4/4 FOR NOW
 
@@ -785,7 +943,10 @@ const generateTones = () => {
 
           if (lastIndex === beatIndex - 1 && noteLengths[pIndex][chartIndex] === 1.0) {
             while (carryover > 0) {
-              const value = waveFunction(tones[pIndex][chartIndex])(waveIndex, samplesPerWave, 1)
+              let value = buffering[bufferPointer + localIndex] || 0.0
+              const sample = waveFunction(tones[pIndex][chartIndex])(waveIndex, samplesPerWave, 1)
+
+              value += sample
 
               buffering[bufferPointer + localIndex] = value
 
@@ -823,23 +984,31 @@ const generateTones = () => {
 
           carryover = samplesPerWave - waveIndex
 
-          const noNextBeat = beatData[beatIndex + 1] === null || beatData[beatIndex + 1] === undefined 
+          // const noNextBeat = beatData[beatIndex + 1] === null || beatData[beatIndex + 1] === undefined 
 
-          if (noNextBeat || noteLengths[pIndex][chartIndex] < 1.0) {
-            buffering[bufferPointer + localIndex - 1] = 0
-          }
+          // if (noNextBeat && noteLengths[pIndex][chartIndex] === 1.0) {
+          //   let startIndex = bufferPointer + localIndex - 220
+          //   const diff = buffering[startIndex] / 220
+          //   const dir = diff > 0
+
+          //   for (let i = 0; i < 220; i++) {
+          //     if (dir) {
+          //       buffering[startIndex] = buffering[startIndex - 1] - diff
+          //     } else {
+          //       buffering[startIndex] = buffering[startIndex - 1] + diff
+          //     }
+
+          //     startIndex++
+          //   }
+
+          //   buffering[bufferPointer + localIndex] = 0
+          // }
         }
       })
     })
 
     offset += bufferSize
   })
-
-
-  // zero out ~220 at end of buffer? 220 = 10 ms at 22050 sample rate
-  // for (let i = buffering.length - 1; i > buffering.length - 221; i--) {
-  //   buffering[i] = 0.0
-  // }
 }
 
 const squareSample = (index, samplesPerWave, multiplier = 1.0) => {
@@ -876,78 +1045,81 @@ const sineSample = (index, samplesPerWave, multiplier = 1.0) => {
 
 let timerId
 let timerStart
-let millisPer16th // = (seconds / 16) * 1000
-let interval // = Math.floor(millisPer16th)
 let lastPlayheadPhrase
 let lastPlayheadIndex
-let hIndex = 0
+let sequenceIndex
+let phraseIndex
+let lastSequenceIndex
 
 const highlightColumn = () => {
   const elapsedTime = Date.now() - timerStart
+  const millis = elapsedTime % totalMillis
 
-  // calculate these wrt multiple phrases
-  const index = Math.floor(elapsedTime / interval) % 16
-  const pIndex = '?'
+  sequenceIndex = timeStops.findIndex(n => millis < n)
+  phraseIndex = sequence[sequenceIndex] - 1
 
-  if (lastPlayheadIndex !== index) {
+  const index = Math.floor((millis - (timeStops[sequenceIndex - 1] || 0)) / millisPer16ths[sequenceIndex]) % 16
+
+  if (lastPlayheadIndex !== index || lastPlayheadPhrase !== phraseIndex) {
     if (lastPlayheadIndex !== null && lastPlayheadIndex !== undefined) {
-      columns[pIndex][lastPlayheadIndex].forEach(td => {
+      columns[lastPlayheadPhrase][lastPlayheadIndex].forEach(td => {
         td.classList.remove("tan")
       })
     }
 
-    columns[pIndex][index].forEach(td => {
+    columns[phraseIndex][index].forEach(td => {
       td.classList.add("tan")
     })
 
-    lastPlayheadPhrase = pIndex
+
+    if (lastSequenceIndex !== sequenceIndex) {
+      sequenceSelects[sequenceIndex].classList.add('tan')
+
+      if (lastSequenceIndex !== null && lastSequenceIndex !== undefined) {
+        sequenceSelects[lastSequenceIndex].classList.remove('tan')
+      }
+    }
+
+    lastPlayheadPhrase = phraseIndex
     lastPlayheadIndex = index
+    lastSequenceIndex = sequenceIndex
   }
 }
 
-const highlightPhrase = () => {
-  const elapsedTime = Date.now() - timerStart
-  const millis = elapsedTime % totalMillis
-  const lastIndex = hIndex
-
-  hIndex = timeStops.findIndex(n => millis < n)
-
-  if (lastIndex !== hIndex)
-    document.querySelector(`#phrase${lastIndex}`).classList.remove('tan')
-
-  document.querySelector(`#phrase${hIndex}`).classList.add('tan')
-}
-
-const loop = () => {
+const play = () => {
   stop()
   bufferSource = audioCtx.createBufferSource()
   bufferSource.connect(audioCtx.destination)
   bufferSource.buffer = buffer
-  bufferSource.onended = () => { playing = false }
-  bufferSource.loop = true
+  bufferSource.onended = () => {
+    playing = false
+    finishTimer()
+  }
   playing = true
-  timerId = setInterval(highlightPhrase, interval)
+  timerId = setInterval(highlightColumn, 50)
   timerStart = Date.now()
   bufferSource.start()
+}
+
+const finishTimer = () => {
+  clearInterval(timerId)
+
+  timerId = null
+  timerStart = null
+
+  forEach(document.querySelectorAll('td'), (i, td) => td.classList.remove('tan'))
+  forEach(document.querySelectorAll('select.step'), (i, s) => s.classList.remove('tan'))
+
+  lastPlayheadPhrase = null
+  lastPlayheadIndex = null
+  lastSequenceIndex = null
 }
 
 const stop = () => {
   if (!!bufferSource) {
     try {
       bufferSource.stop()
-
-      clearInterval(timerId)
-      timerId = null
-      timerStart = null
-
-      document.querySelector(`#phrase${hIndex}`).classList.remove('tan')
-
-      // columns[lastPlayheadPhrase][lastPlayheadIndex].forEach(td => {
-      //   td.classList.remove("tan")
-      // })
-
-      // lastPlayheadPhrase = null
-      // lastPlayheadIndex = null
+      finishTimer()
     } catch (e) {}
   }
 }
