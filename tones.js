@@ -1,12 +1,5 @@
 const toneConstant = 1.059463
-const bpms = []
-const notes = [[]]
 const sampleRate = 22050
-const pData = [[]]
-const tones = [[]]
-const rootNotes = []
-const octaves = [[]]
-const noteLengths = [[]]
 const noteNamesAndFreqs = {
   C: 262,
   'C#': 277,
@@ -22,18 +15,25 @@ const noteNamesAndFreqs = {
   B: 494
 }
 
-let sequence = [1]
-let columns = []
+let bpms
+let notes
+let pData
+let tones
+let rootNotes
+let octaves
+let noteLengths
+let sequence
+let columns
 let playing = false
 let audioCtx = new (window.AudioContext || window.webkitAudioContext)()
 let buffer
 let bufferSource
-let bufferSizes = []
-let timeStops = []
-let millisPer16ths = []
+let bufferSizes
+let timeStops
+let millisPer16ths
 let totalMillis
-let sampleNotes = []
-let sequenceSelects = []
+let sampleNotes
+let sequenceSelects
 
 const generateNoteNames = (startNote) => {
   const noteNames = Object.keys(noteNamesAndFreqs)
@@ -312,18 +312,30 @@ const createPhrase = () => {
     keySelect.add(keyOpt)
   })
 
-  let add = document.createElement('div')
-  add.className = 'add'
-  add.id = `add${pIndex}`
-  add.onclick = createChart
-  add.innerText = '+'
+  let dupButton = document.createElement('button')
+  dupButton.innerText = 'duplicate'
+  dupButton.id = `dupphrase${pIndex}`
+  dupButton.onclick = duplicatePhrase
+
+  let delButton = document.createElement('button')
+  delButton.innerText = 'delete'
+  delButton.id = `delphrase${pIndex}`
+  delButton.onclick = deletePhrase
 
   phraseContainer.appendChild(phraseNo)
   bpmContainer.appendChild(bpmLabel)
   bpmContainer.appendChild(bpm)
   bpmContainer.appendChild(keyLabel)
   bpmContainer.appendChild(keySelect)
+  bpmContainer.appendChild(dupButton)
+  bpmContainer.appendChild(delButton)
   phraseContainer.appendChild(bpmContainer)
+
+  let add = document.createElement('div')
+  add.className = 'add'
+  add.id = `add${pIndex}`
+  add.onclick = createChart
+  add.innerText = '+'
 
   phraseContainer.appendChild(add)
   phrases.appendChild(phraseContainer)
@@ -380,19 +392,34 @@ const createChart = (e) => {
   setNoteLengths()
   assignCellClicks()
   generateSound()
+  generateSampleTones()
   gatherColumns()
-  history.replaceState(null, '', '?p=' + encodeAll())
+  history.replaceState(null, '', '?p='.concat(encodeAll()))
+}
+
+const duplicatePhrase = (e) => {
+  let pIndex = parseInt(e.target.id.slice(9))
+  let encoded = encodePhrase(pIndex)
+  let current = encodeAll()
+
+  history.replaceState(null, '', '?p='.concat(current.concat('|', encoded)))
+  init()
+}
+
+const deletePhrase = (e) => {
+  let pIndex = parseInt(e.target.id.slice(9))
+  let parts = encodeAll().split('|')
+
+  parts.splice(pIndex + 1, 1) // account for "sequence" data at position 0
+  history.replaceState(null, '', '?p='.concat(parts.join('|')))
+  init()
 }
 
 const createCharts = () => {
   const proto = document.querySelector("div.proto")
   const phrases = document.querySelector('.phrases')
 
-  pData.forEach(phrase => {
-    if (phrase.length === 0) {
-      phrase[0] = []
-    }
-  })
+  while (phrases.firstChild) phrases.removeChild(phrases.lastChild)
 
   pData.forEach((phrase, pIndex) => {
     let phraseContainer = document.createElement('div')
@@ -430,11 +457,23 @@ const createCharts = () => {
       keySelect.add(keyOpt)
     })
 
+    let dupButton = document.createElement('button')
+    dupButton.innerText = 'duplicate'
+    dupButton.id = `dupphrase${pIndex}`
+    dupButton.onclick = duplicatePhrase
+
+    let delButton = document.createElement('button')
+    delButton.innerText = 'delete'
+    delButton.id = `delphrase${pIndex}`
+    delButton.onclick = deletePhrase
+
     phraseContainer.appendChild(phraseNo)
     bpmContainer.appendChild(bpmLabel)
     bpmContainer.appendChild(bpm)
     bpmContainer.appendChild(keyLabel)
     bpmContainer.appendChild(keySelect)
+    bpmContainer.appendChild(dupButton)
+    bpmContainer.appendChild(delButton)
     phraseContainer.appendChild(bpmContainer)
 
     phrase.forEach((_, chartIndex) => {
@@ -554,6 +593,15 @@ const remakeSequenceSelects = () => {
 }
 
 const init = () => {
+  bpms = []
+  notes = []
+  pData = []
+  tones = []
+  rootNotes = []
+  octaves = []
+  noteLengths = []
+  sequence = []
+
   const params = (new URL(document.location)).searchParams
   const phraseParam = params.get('p')
 
@@ -605,12 +653,14 @@ const init = () => {
       })
     })
   } else {
+    pData[0] = []
     sequence = [1]
     bpms[0] = 110
-    tones[0][0] = 1
+    tones[0] = [1]
     rootNotes[0] = 'C'
-    octaves[0][0] = 3
-    noteLengths[0][0] = 1.0
+    octaves[0] = [3]
+    noteLengths[0] = [1.0]
+    notes[0] = []
     generateNotes(0, 0)
   }
 
@@ -742,6 +792,31 @@ function bufferToWave(abuffer, len) {
   }
 }
 
+const encodePhrase = (pIndex) => {
+  let phrase = pData[pIndex]
+  let beatString = ''
+
+  beatString = beatString.concat(bpms[pIndex].toString(16).toUpperCase().padStart(2, '0'))
+  beatString = beatString.concat(Object.keys(noteNamesAndFreqs).indexOf(rootNotes[pIndex]).toString(16))
+  beatString = beatString.concat(';')
+
+  phrase.forEach((data, index) => {
+    beatString = beatString.concat(tones[pIndex][index])
+    beatString = beatString.concat(octaves[pIndex][index])
+    beatString = beatString.concat([0.25, 0.5, 0.75, 1.0].indexOf(noteLengths[pIndex][index]))
+
+    data.forEach((noteIndex, index) => {
+      if (noteIndex !== null && noteIndex !== undefined) {
+        beatString = beatString.concat(index.toString(16).toUpperCase(), noteIndex.toString(16).toUpperCase())
+      }
+    })
+
+    beatString = beatString.concat(';')
+  })
+
+  return beatString.slice(0, -1)
+}
+
 const encodeAll = () => {
   let beatString = sequence.map(s => s.toString(16)).join('').concat('|')
 
@@ -805,6 +880,15 @@ const generateSound = () => {
   millisPer16ths = []
   totalMillis = 0
 
+  pData.forEach((p, pIndex) => {
+    let pbpm = bpms[pIndex]
+    let beatsPerSecond = pbpm / 60.0
+    let secondsPerBeat = 1.0 / beatsPerSecond
+    let seconds = secondsPerBeat * beatsPerMeasure
+    let phraseBufferSize = parseInt(seconds * sampleRate)
+    bufferSizes[pIndex] = phraseBufferSize
+  })
+
   sequence.forEach((seqNo, index) => {
     let pIndex = seqNo - 1
     let pbpm = bpms[pIndex]
@@ -815,7 +899,6 @@ const generateSound = () => {
     let phraseBufferSize = parseInt(seconds * sampleRate)
     let interval = Math.round(millis / 16)
 
-    bufferSizes[pIndex] = phraseBufferSize
     totalMillis += millis
     timeStops[index] = totalMillis
     millisPer16ths[index] = interval
@@ -914,6 +997,14 @@ const generateSampleTones = () => {
   }
 }
 
+const expo = (x, max=100, lambda=4) => {
+  const base = Math.log(x) / Math.log(lambda)
+  const points = Array(x).fill(max)
+  return points.map((point, n) => point / Math.pow(base, n)).reverse()
+}
+
+let leadIn = expo(100, 1.0)
+
 const generateTones = () => {
   let buffering = buffer.getChannelData(0)
   let carryover = 0
@@ -932,21 +1023,30 @@ const generateTones = () => {
     let phrase = pData[pIndex]
     let bufferSize = bufferSizes[pIndex]
     let subBufferSize = Math.round(bufferSize / 16) // just doing 16th notes in 4/4 FOR NOW
+    let lastIndex = -1
 
     phrase.forEach((beatData, chartIndex) => {
-      let lastIndex = -1
-
       beatData.forEach((noteIndex, beatIndex) => {
         if (noteIndex !== null && noteIndex !== undefined) {
           let bufferPointer = offset + beatIndex * subBufferSize // start of the "16th" subsection
           let localIndex = 0
 
-          if (lastIndex === beatIndex - 1 && noteLengths[pIndex][chartIndex] === 1.0) {
+          const isCarryover = lastIndex === beatIndex - 1 || (lastIndex === 15 && beatIndex === 0)
+          if (isCarryover && noteLengths[pIndex][chartIndex] === 1.0) {
+            const noNextBeat = beatData[beatIndex + 1] === null || beatData[beatIndex + 1] === undefined 
+
             while (carryover > 0) {
+              let nl = noteLengths[pIndex][chartIndex]
               let value = buffering[bufferPointer + localIndex] || 0.0
+              let waveMulti = waveMultiplier(localIndex, subBufferSize, nl)
               const sample = waveFunction(tones[pIndex][chartIndex])(waveIndex, samplesPerWave, 1)
 
               value += sample
+
+              if (value > 1.0)
+                value = 1.0
+              else if (value < -1.0)
+                value = -1.0
 
               buffering[bufferPointer + localIndex] = value
 
@@ -960,10 +1060,18 @@ const generateTones = () => {
           freq = notes[pIndex][chartIndex][noteIndex]
           samplesPerWave = parseInt(sampleRate / freq)
 
+          const noNextBeat = beatData[beatIndex + 1] === null || beatData[beatIndex + 1] === undefined 
+
           while (localIndex < subBufferSize) {
+            let nl = noteLengths[pIndex][chartIndex]
             let value = buffering[bufferPointer + localIndex] || 0.0
-            let waveMulti = waveMultiplier(localIndex, subBufferSize, noteLengths[pIndex][chartIndex])
+            let waveMulti = waveMultiplier(localIndex, subBufferSize, nl)
             let sample = waveFunction(tones[pIndex][chartIndex])(waveIndex, samplesPerWave, waveMulti)
+
+            // if (localIndex < 220) sample = 0
+            // if (localIndex < 1000) {
+            //   sample = sample * (localIndex / 1000)
+            // }
 
             value += sample
 
@@ -982,27 +1090,14 @@ const generateTones = () => {
             if (waveIndex >= samplesPerWave) waveIndex = 0
           }
 
+          let overtime = samplesPerWave - waveIndex
+
+          while (overtime > 0 && bufferPointer + localIndex < buffering.length) {
+            overtime--
+            localIndex++
+          }
+
           carryover = samplesPerWave - waveIndex
-
-          // const noNextBeat = beatData[beatIndex + 1] === null || beatData[beatIndex + 1] === undefined 
-
-          // if (noNextBeat && noteLengths[pIndex][chartIndex] === 1.0) {
-          //   let startIndex = bufferPointer + localIndex - 220
-          //   const diff = buffering[startIndex] / 220
-          //   const dir = diff > 0
-
-          //   for (let i = 0; i < 220; i++) {
-          //     if (dir) {
-          //       buffering[startIndex] = buffering[startIndex - 1] - diff
-          //     } else {
-          //       buffering[startIndex] = buffering[startIndex - 1] + diff
-          //     }
-
-          //     startIndex++
-          //   }
-
-          //   buffering[bufferPointer + localIndex] = 0
-          // }
         }
       })
     })
