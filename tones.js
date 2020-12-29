@@ -653,7 +653,7 @@ const init = () => {
       })
     })
   } else {
-    pData[0] = []
+    pData[0] = [[]]
     sequence = [1]
     bpms[0] = 110
     tones[0] = [1]
