@@ -347,6 +347,7 @@ const createPhrase = () => {
   noteLengths[pIndex] = []
   notes[pIndex] = []
   bpms[pIndex] = bpms[pIndex - 1]
+  remakeSequenceSelects()
   createChart({target: {id: `add${pIndex}`}})
 }
 
@@ -1004,6 +1005,7 @@ const expo = (x, max=100, lambda=4) => {
 }
 
 let leadIn = expo(100, 1.0)
+let leadOut = leadIn.reverse()
 
 const generateTones = () => {
   let buffering = buffer.getChannelData(0)
@@ -1061,6 +1063,10 @@ const generateTones = () => {
           samplesPerWave = parseInt(sampleRate / freq)
 
           const noNextBeat = beatData[beatIndex + 1] === null || beatData[beatIndex + 1] === undefined 
+          const doLeadIn = beatData[beatIndex - 1] === null ||
+            beatData[beatIndex - 1] === undefined ||
+            noteLengths[pIndex][chartIndex] < 1
+
 
           while (localIndex < subBufferSize) {
             let nl = noteLengths[pIndex][chartIndex]
@@ -1068,10 +1074,11 @@ const generateTones = () => {
             let waveMulti = waveMultiplier(localIndex, subBufferSize, nl)
             let sample = waveFunction(tones[pIndex][chartIndex])(waveIndex, samplesPerWave, waveMulti)
 
-            // if (localIndex < 220) sample = 0
-            // if (localIndex < 1000) {
-            //   sample = sample * (localIndex / 1000)
-            // }
+            if (doLeadIn && localIndex < leadIn.length)
+              sample = sample * leadIn[localIndex]
+
+            if (noNextBeat && localIndex > subBufferSize - leadOut.length)
+              sample = sample * leadOut[subBufferSize - localIndex]
 
             value += sample
 
