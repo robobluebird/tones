@@ -960,36 +960,51 @@ const generateSampleTones = () => {
       sampleTones[i][j] = []
 
       for (let k = 0; k < notes[i][j].length; k++) {
-        let buffer = audioCtx.createBuffer(1, subBufferSize, sampleRate)
-        let buffering = buffer.getChannelData(0)
-
-        for (let i = 0; i < buffering.length; i++) {
-          buffering[i] = 0.0
-        }
-
+        let someArray = []
         let freq = notes[i][j][k]
         let samplesPerWave = parseInt(sampleRate / freq)
         let localIndex = 0
         let waveIndex = 0
 
         while (localIndex < subBufferSize) {
-          let value = buffering[localIndex] || 0.0
-          let waveMulti = waveMultiplier(localIndex, subBufferSize, noteLengths[i][j])
-          let sample = waveFunction(tones[i][j])(waveIndex, samplesPerWave, waveMulti)
+          let sample = waveFunction(tones[i][j])(waveIndex, samplesPerWave)
 
-          value += sample
+          if (sample > 1.0)
+            sample = 1.0
+          else if (sample < -1.0)
+            sample = -1.0
 
-          if (value > 1.0)
-            value = 1.0
-          else if (value < -1.0)
-            value = -1.0
-
-          buffering[localIndex] = value
+          someArray[localIndex] = sample
 
           waveIndex++
           localIndex++
 
           if (waveIndex >= samplesPerWave) waveIndex = 0
+        }
+
+        let carryover = 0
+
+        while (waveIndex < samplesPerWave) {
+          let sample = waveFunction(tones[i][j])(waveIndex, samplesPerWave)
+
+          if (sample > 1.0)
+            sample = 1.0
+          else if (sample < -1.0)
+            sample = -1.0
+
+          someArray[localIndex] = sample
+
+          localIndex++
+          waveIndex++
+          carryover++
+        }
+
+        let realBufferSize = subBufferSize + carryover
+        let buffer = audioCtx.createBuffer(1, realBufferSize, sampleRate)
+        let buffering = buffer.getChannelData(0)
+
+        for (let m = 0; m < realBufferSize; m++) {
+          buffering[m] = someArray[m]
         }
 
         sampleTones[i][j][k] = buffer
@@ -1004,7 +1019,7 @@ const expo = (x, max=100, lambda=4) => {
   return points.map((point, n) => point / Math.pow(base, n)).reverse()
 }
 
-let leadIn = expo(100, 1.0)
+let leadIn = expo(200, 1.0)
 let leadOut = leadIn.reverse()
 
 const generateTones = () => {
@@ -1031,54 +1046,16 @@ const generateTones = () => {
       beatData.forEach((noteIndex, beatIndex) => {
         if (noteIndex !== null && noteIndex !== undefined) {
           let bufferPointer = offset + beatIndex * subBufferSize // start of the "16th" subsection
-          let localIndex = 0
+          let localIndex = beatIndex === lastIndex + 1 ? carryover : 0
+          let waveIndex = 0
+          let lengthOffset = (1.0 - noteLengths[pIndex][chartIndex]) * subBufferSize
 
-          const isCarryover = lastIndex === beatIndex - 1 || (lastIndex === 15 && beatIndex === 0)
-          if (isCarryover && noteLengths[pIndex][chartIndex] === 1.0) {
-            const noNextBeat = beatData[beatIndex + 1] === null || beatData[beatIndex + 1] === undefined 
-
-            while (carryover > 0) {
-              let nl = noteLengths[pIndex][chartIndex]
-              let value = buffering[bufferPointer + localIndex] || 0.0
-              let waveMulti = waveMultiplier(localIndex, subBufferSize, nl)
-              const sample = waveFunction(tones[pIndex][chartIndex])(waveIndex, samplesPerWave, 1)
-
-              value += sample
-
-              if (value > 1.0)
-                value = 1.0
-              else if (value < -1.0)
-                value = -1.0
-
-              buffering[bufferPointer + localIndex] = value
-
-              localIndex++
-              waveIndex++
-              carryover--
-            }
-          }
-
-          waveIndex = 0
           freq = notes[pIndex][chartIndex][noteIndex]
           samplesPerWave = parseInt(sampleRate / freq)
 
-          const noNextBeat = beatData[beatIndex + 1] === null || beatData[beatIndex + 1] === undefined 
-          const doLeadIn = beatData[beatIndex - 1] === null ||
-            beatData[beatIndex - 1] === undefined ||
-            noteLengths[pIndex][chartIndex] < 1
-
-
-          while (localIndex < subBufferSize) {
-            let nl = noteLengths[pIndex][chartIndex]
+          while (localIndex + lengthOffset < subBufferSize) {
             let value = buffering[bufferPointer + localIndex] || 0.0
-            let waveMulti = waveMultiplier(localIndex, subBufferSize, nl)
-            let sample = waveFunction(tones[pIndex][chartIndex])(waveIndex, samplesPerWave, waveMulti)
-
-            if (doLeadIn && localIndex < leadIn.length)
-              sample = sample * leadIn[localIndex]
-
-            if (noNextBeat && localIndex > subBufferSize - leadOut.length)
-              sample = sample * leadOut[subBufferSize - localIndex]
+            let sample = waveFunction(tones[pIndex][chartIndex])(waveIndex, samplesPerWave)
 
             value += sample
 
@@ -1097,14 +1074,26 @@ const generateTones = () => {
             if (waveIndex >= samplesPerWave) waveIndex = 0
           }
 
-          let overtime = samplesPerWave - waveIndex
+          carryover = 0
 
-          while (overtime > 0 && bufferPointer + localIndex < buffering.length) {
-            overtime--
+          while (waveIndex < samplesPerWave && bufferPointer + localIndex < buffering.length) {
+            let value = buffering[bufferPointer + localIndex] || 0.0
+            let sample = waveFunction(tones[pIndex][chartIndex])(waveIndex, samplesPerWave)
+            value += sample
+
+            if (value > 1.0)
+              value = 1.0
+            else if (value < -1.0)
+              value = -1.0
+
+            buffering[bufferPointer + localIndex] = value
+
             localIndex++
+            waveIndex++
+            carryover++
           }
 
-          carryover = samplesPerWave - waveIndex
+          lastIndex = beatIndex
         }
       })
     })
