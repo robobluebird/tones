@@ -28,12 +28,13 @@ let playing = false
 let audioCtx = new (window.AudioContext || window.webkitAudioContext)()
 let buffer
 let bufferSource
-let bufferSizes
+let bufferSizes = []
 let timeStops
 let millisPer16ths
 let totalMillis
 let sampleNotes
 let sequenceSelects
+let phraseBuffers = []
 
 const generateNoteNames = (startNote) => {
   const noteNames = Object.keys(noteNamesAndFreqs)
@@ -66,8 +67,8 @@ const forEach = (array, callback, scope) => {
 
 const paintAll = () => {
   pData.forEach((phrase, pIndex) => {
-    phrase.forEach((chart, index) => {
-      const table = document.querySelector(`#chart${pIndex}-${index}`)
+    phrase.forEach((grid, index) => {
+      const table = document.querySelector(`#grid${pIndex}-${index}`)
       const trs = table.querySelectorAll('tbody tr')
 
       forEach(trs, (i, tr) => {
@@ -250,14 +251,14 @@ const deleteChart = (e) => {
 
   while (index < pData[pIndex].length) {
     let cont = document.querySelector(`#container${pIndex}-${index + 1}`)
-    let tab = cont.querySelector(`#chart${pIndex}-${index + 1}`)
+    let tab = cont.querySelector(`#grid${pIndex}-${index + 1}`)
     let del = cont.querySelector('button.delete')
     let lis = cont.querySelector('select.tone')
     let oct = cont.querySelector('select.octave')
     let ntl = cont.querySelector('select.notelength')
 
     cont.id = `container${pIndex}-${index}`
-    tab.id = `chart${pIndex}-${index}`
+    tab.id = `grid${pIndex}-${index}`
     del.id = `delete${pIndex}-${index}`
     lis.id = `inst${pIndex}-${index}`
     oct.id = `octave${pIndex}-${index}`
@@ -355,37 +356,37 @@ const createChart = (e) => {
   const pIndex = parseInt(e.target.id.slice(3))
   const proto = document.querySelector("div.proto")
   const phrases = document.querySelector('.phrases')
-  const chartIndex = pData[pIndex].length
+  const gridIndex = pData[pIndex].length
 
   let phraseContainer = document.querySelector(`#phrase${pIndex}`)
-  let chartContainer = proto.cloneNode(true)
-  let chart = chartContainer.querySelector('table')
-  let deleteButton = chartContainer.querySelector('button.delete')
-  let lis = chartContainer.querySelector('select.tone')
-  let oct = chartContainer.querySelector('select.octave')
-  let ntl = chartContainer.querySelector('select.notelength')
+  let gridContainer = proto.cloneNode(true)
+  let grid = gridContainer.querySelector('table')
+  let deleteButton = gridContainer.querySelector('button.delete')
+  let lis = gridContainer.querySelector('select.tone')
+  let oct = gridContainer.querySelector('select.octave')
+  let ntl = gridContainer.querySelector('select.notelength')
   let add = phraseContainer.querySelector(`#add${pIndex}`)
 
-  chartContainer.classList.remove('proto')
-  chartContainer.id = `container${pIndex}-${chartIndex}`
-  chart.className = 'grid'
-  chart.id = `chart${pIndex}-${chartIndex}`
-  deleteButton.id = `delete${pIndex}-${chartIndex}`
+  gridContainer.classList.remove('proto')
+  gridContainer.id = `container${pIndex}-${gridIndex}`
+  grid.className = 'grid'
+  grid.id = `grid${pIndex}-${gridIndex}`
+  deleteButton.id = `delete${pIndex}-${gridIndex}`
   deleteButton.onclick = deleteChart
-  lis.id = `inst${pIndex}-${chartIndex}`
+  lis.id = `inst${pIndex}-${gridIndex}`
   lis.onchange = changeTone
-  oct.id = `octave${pIndex}-${chartIndex}`
+  oct.id = `octave${pIndex}-${gridIndex}`
   oct.onchange = changeOctave
-  ntl.id = `notelength${pIndex}-${chartIndex}`
+  ntl.id = `notelength${pIndex}-${gridIndex}`
   ntl.onchange = changeNoteLength
 
-  phraseContainer.insertBefore(chartContainer, add)
+  phraseContainer.insertBefore(gridContainer, add)
 
-  pData[pIndex][chartIndex] = []
-  tones[pIndex][chartIndex] = 1
-  octaves[pIndex][chartIndex] = 3
-  noteLengths[pIndex][chartIndex] = 1.0
-  generateNotes(pIndex, chartIndex)
+  pData[pIndex][gridIndex] = []
+  tones[pIndex][gridIndex] = 1
+  octaves[pIndex][gridIndex] = 3
+  noteLengths[pIndex][gridIndex] = 1.0
+  generateNotes(pIndex, gridIndex)
   paintAll()
   setInsts()
   setRoots()
@@ -408,10 +409,22 @@ const duplicatePhrase = (e) => {
 }
 
 const deletePhrase = (e) => {
+  if (pData.length === 1)
+    return
+
   let pIndex = parseInt(e.target.id.slice(9))
   let parts = encodeAll().split('|')
 
-  parts.splice(pIndex + 1, 1) // account for "sequence" data at position 0
+  parts.splice(pIndex + 1, 1) // account for "sequence" data at position 0 of url parts
+  parts[0] = parts[0].replaceAll(pIndex + 1, '') // remove from sequence too
+  parts[0] = parts[0].split('')
+                     .map(n => parseInt(n))
+                     .filter(n => n !== pIndex + 1)
+                     .map(n => n > pIndex + 1 ? n - 1 : n)
+                     .join('')
+  if (!parts[0])
+    parts[0] = '1'
+
   history.replaceState(null, '', '?p='.concat(parts.join('|')))
   init()
 }
@@ -477,28 +490,28 @@ const createCharts = () => {
     bpmContainer.appendChild(delButton)
     phraseContainer.appendChild(bpmContainer)
 
-    phrase.forEach((_, chartIndex) => {
-      let chartContainer = proto.cloneNode(true)
-      let chart = chartContainer.querySelector('table')
-      let deleteButton = chartContainer.querySelector('button.delete')
-      let lis = chartContainer.querySelector('select.tone')
-      let oct = chartContainer.querySelector('select.octave')
-      let ntl = chartContainer.querySelector('select.notelength')
+    phrase.forEach((_, gridIndex) => {
+      let gridContainer = proto.cloneNode(true)
+      let grid = gridContainer.querySelector('table')
+      let deleteButton = gridContainer.querySelector('button.delete')
+      let lis = gridContainer.querySelector('select.tone')
+      let oct = gridContainer.querySelector('select.octave')
+      let ntl = gridContainer.querySelector('select.notelength')
 
-      chartContainer.classList.remove('proto')
-      chartContainer.id = `container${pIndex}-${chartIndex}`
-      chart.className = 'grid'
-      chart.id = `chart${pIndex}-${chartIndex}`
-      deleteButton.id = `delete${pIndex}-${chartIndex}`
+      gridContainer.classList.remove('proto')
+      gridContainer.id = `container${pIndex}-${gridIndex}`
+      grid.className = 'grid'
+      grid.id = `grid${pIndex}-${gridIndex}`
+      deleteButton.id = `delete${pIndex}-${gridIndex}`
       deleteButton.onclick = deleteChart
-      lis.id = `inst${pIndex}-${chartIndex}`
+      lis.id = `inst${pIndex}-${gridIndex}`
       lis.onchange = changeTone
-      oct.id = `octave${pIndex}-${chartIndex}`
+      oct.id = `octave${pIndex}-${gridIndex}`
       oct.onchange = changeOctave
-      ntl.id = `notelength${pIndex}-${chartIndex}`
+      ntl.id = `notelength${pIndex}-${gridIndex}`
       ntl.onchange = changeNoteLength
 
-      phraseContainer.appendChild(chartContainer)
+      phraseContainer.appendChild(gridContainer)
     })
 
     let add = document.createElement('div')
@@ -551,7 +564,7 @@ const changeSequence = (e) => {
   let index = parseInt(e.target.id.slice(4))
 
   if (e.target.value === '-') {
-    if (index < sequence.length - 1) {
+    if (index < sequence.length) {
       sequence = sequence.slice(0, index)
     }
   } else {
@@ -610,6 +623,9 @@ const init = () => {
     const phrases = phraseParam.split('|')
 
     sequence = phrases.shift().split('').map(n => parseInt(n, 16))
+    
+    if (!sequence.length) // if empty sequence, default to [1]
+      sequence = [1]
 
     phrases.forEach((phrasePatterns, pIndex) => {
       const patterns = phrasePatterns.split(';')
@@ -719,7 +735,7 @@ const assignCellClicks = () => {
             }
 
             paintAll()
-            generateSound()
+            generateSound(pIndex)
             history.replaceState(null, '', '?p=' + encodeAll())
           }
         })
@@ -872,43 +888,9 @@ const waveFunction = (i) => {
   }
 }
 
-const generateSound = () => {
-  let bSize = 0
-  let beatsPerMeasure = 4
-
-  bufferSizes = []
-  timeStops = []
-  millisPer16ths = []
-  totalMillis = 0
-
-  pData.forEach((p, pIndex) => {
-    let pbpm = bpms[pIndex]
-    let beatsPerSecond = pbpm / 60.0
-    let secondsPerBeat = 1.0 / beatsPerSecond
-    let seconds = secondsPerBeat * beatsPerMeasure
-    let phraseBufferSize = parseInt(seconds * sampleRate)
-    bufferSizes[pIndex] = phraseBufferSize
-  })
-
-  sequence.forEach((seqNo, index) => {
-    let pIndex = seqNo - 1
-    let pbpm = bpms[pIndex]
-    let beatsPerSecond = pbpm / 60.0
-    let secondsPerBeat = 1.0 / beatsPerSecond
-    let seconds = secondsPerBeat * beatsPerMeasure
-    let millis = Math.round(seconds * 1000)
-    let phraseBufferSize = parseInt(seconds * sampleRate)
-    let interval = Math.round(millis / 16)
-
-    totalMillis += millis
-    timeStops[index] = totalMillis
-    millisPer16ths[index] = interval
-    bSize += phraseBufferSize
-  })
-
-  buffer = audioCtx.createBuffer(1, bSize, sampleRate)
-
-  generateTones()
+const generateSound = (pIndex) => {
+  generatePhraseBuffers(pIndex)
+  generateSequence()
   prepareDownload()
 }
 
@@ -925,7 +907,7 @@ const gatherColumns = () => {
 
   for (let i = 0; i < pData.length; i++) {
     for (let j = 0; j < pData[i].length; j++) {
-      const table = document.querySelector(`#chart${i}-${j}`)
+      const table = document.querySelector(`#grid${i}-${j}`)
       const trs = table.querySelectorAll('tbody tr')
 
       forEach(trs, (k, tr) => {
@@ -937,14 +919,6 @@ const gatherColumns = () => {
       })
     }
   }
-}
-
-const waveMultiplier = (index, bufferSize, noteLength) => {
-  if (noteLength === 1) return 1
-
-  let thing = ((bufferSize * noteLength) - index) / (bufferSize * noteLength)
-
-  return Math.max(0, thing)
 }
 
 const generateSampleTones = () => {
@@ -1013,49 +987,38 @@ const generateSampleTones = () => {
   }
 }
 
-const expo = (x, max=100, lambda=4) => {
-  const base = Math.log(x) / Math.log(lambda)
-  const points = Array(x).fill(max)
-  return points.map((point, n) => point / Math.pow(base, n)).reverse()
-}
+const generatePhraseBuffers = (specificPhrase) => {
+  let beatsPerMeasure = 4
+  let specificPhraseWanted = specificPhrase !== null && specificPhrase !== undefined
 
-let leadIn = expo(200, 1.0)
-let leadOut = leadIn.reverse()
+  pData.forEach((phrase, pIndex) => {
+    if (specificPhraseWanted && specificPhrase !== pIndex)
+      return
 
-const generateTones = () => {
-  let buffering = buffer.getChannelData(0)
-  let carryover = 0
-  let waveIndex = 0
-  let freq = 0
-  let samplesPerWave = 0
-  let lastSample = 0
-  let offset = 0
-
-  for (let i = 0; i < buffering.length; i++) {
-    buffering[i] = 0.0
-  }
-
-  sequence.forEach((seqNo, index) => {
-    let pIndex = seqNo - 1
-    let phrase = pData[pIndex]
-    let bufferSize = bufferSizes[pIndex]
+    let pbpm = bpms[pIndex]
+    let beatsPerSecond = pbpm / 60.0
+    let secondsPerBeat = 1.0 / beatsPerSecond
+    let seconds = secondsPerBeat * beatsPerMeasure
+    let bufferSize = parseInt(seconds * sampleRate)
     let subBufferSize = Math.round(bufferSize / 16) // just doing 16th notes in 4/4 FOR NOW
     let lastIndex = -1
+    let carryover = 0
+    let someArray = Array(bufferSize).fill(0.0)
 
-    phrase.forEach((beatData, chartIndex) => {
-      beatData.forEach((noteIndex, beatIndex) => {
+    phrase.forEach((phraseData, gridIndex) => {
+      phraseData.forEach((noteIndex, beatIndex) => {
         if (noteIndex !== null && noteIndex !== undefined) {
-          let bufferPointer = offset + beatIndex * subBufferSize // start of the "16th" subsection
+          let bufferPointer = beatIndex * subBufferSize // start of the "16th" subsection
           let localIndex = beatIndex === lastIndex + 1 ? carryover : 0
           let waveIndex = 0
-          let lengthOffset = (1.0 - noteLengths[pIndex][chartIndex]) * subBufferSize
+          let lengthOffset = (1.0 - noteLengths[pIndex][gridIndex]) * subBufferSize
 
-          freq = notes[pIndex][chartIndex][noteIndex]
+          freq = notes[pIndex][gridIndex][noteIndex]
           samplesPerWave = parseInt(sampleRate / freq)
 
           while (localIndex + lengthOffset < subBufferSize) {
-            let value = buffering[bufferPointer + localIndex] || 0.0
-            let sample = waveFunction(tones[pIndex][chartIndex])(waveIndex, samplesPerWave)
+            let value = someArray[bufferPointer + localIndex] || 0.0
+            let sample = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
 
             value += sample
 
@@ -1064,7 +1027,7 @@ const generateTones = () => {
             else if (value < -1.0)
               value = -1.0
 
-            buffering[bufferPointer + localIndex] = value
+            someArray[bufferPointer + localIndex] = value
 
             waveIndex++
             localIndex++
@@ -1076,9 +1039,10 @@ const generateTones = () => {
 
           carryover = 0
 
-          while (waveIndex < samplesPerWave && bufferPointer + localIndex < buffering.length) {
-            let value = buffering[bufferPointer + localIndex] || 0.0
-            let sample = waveFunction(tones[pIndex][chartIndex])(waveIndex, samplesPerWave)
+          while (waveIndex < samplesPerWave) {
+            let value = someArray[bufferPointer + localIndex] || 0.0
+            let sample = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
+
             value += sample
 
             if (value > 1.0)
@@ -1086,7 +1050,7 @@ const generateTones = () => {
             else if (value < -1.0)
               value = -1.0
 
-            buffering[bufferPointer + localIndex] = value
+            someArray[bufferPointer + localIndex] = value
 
             localIndex++
             waveIndex++
@@ -1096,7 +1060,55 @@ const generateTones = () => {
           lastIndex = beatIndex
         }
       })
+
+      bufferSizes[pIndex] = someArray.length
+
+      let buffer = audioCtx.createBuffer(1, someArray.length, sampleRate)
+      let buffering = buffer.getChannelData(0)
+
+      for (let m = 0; m < someArray.length; m++) {
+        buffering[m] = someArray[m]
+      }
+
+      phraseBuffers[pIndex] = buffer
     })
+  })
+}
+
+const generateSequence = () => {
+  let offset = 0
+  let beatsPerMeasure = 4
+
+  timeStops = []
+  millisPer16ths = []
+  totalMillis = 0
+
+  let len = sequence.reduce((acc, seqNo) => acc = acc + phraseBuffers[seqNo - 1].length, 0)
+
+  buffer = audioCtx.createBuffer(1, len, sampleRate)
+
+  let buffering = buffer.getChannelData(0)
+
+  sequence.forEach((seqNo, index) => {
+    let pIndex = seqNo - 1
+    let pbpm = bpms[pIndex]
+    let beatsPerSecond = pbpm / 60.0
+    let secondsPerBeat = 1.0 / beatsPerSecond
+    let seconds = secondsPerBeat * beatsPerMeasure
+    let millis = Math.round(seconds * 1000)
+    let interval = Math.round(millis / 16)
+
+    let bufferSize = bufferSizes[pIndex]
+    let phraseBuffer = phraseBuffers[pIndex]
+    let phraseBuffering = phraseBuffer.getChannelData(0)
+
+    totalMillis += millis
+    timeStops[index] = totalMillis
+    millisPer16ths[index] = interval
+
+    for (let i = 0; i < phraseBuffering.length; i++) {
+      buffering[offset + i] = phraseBuffering[i]
+    }
 
     offset += bufferSize
   })
