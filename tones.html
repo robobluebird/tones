@@ -1,6 +1,15 @@
 <html>
   <head>
     <style>
+      h2.no-bottom-margin {
+        margin-bottom: 0;
+      }
+
+      h3 {
+        display: inline;
+        margin-right: 20px;
+      }
+
       .centered {
         text-align: center;
       }
@@ -10,7 +19,7 @@
       }
 
       .phrase {
-        padding: 0 0 20px 0;
+        padding: 20px 0 20px 0;
         border-bottom: 1px dashed black;
       }
 
@@ -230,13 +239,13 @@
       } 
     </style>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <script src="unmute.min.js"></script>
     <title>quick loops</title>
   </head>
   <body>
     <h1>quick loops</h1>
     <div>
-      <button class="action" onclick="play()">play</button>
-      <button class="action" onclick="stop()">stop</button>
+      <button class="action" id="play" onclick="play()">play</button>
       <a id="download" href="#">download</a>
     </div>
     <div>
@@ -252,7 +261,7 @@
         </select>
       </div>
     </div>
-    <h2>phrases</h2>
+    <h2 class="no-bottom-margin">phrases</h2>
     <div class="phrases">
     </div>
     <div class="cont gridContainer proto">

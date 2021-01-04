@@ -35,6 +35,9 @@ let totalMillis
 let sampleNotes
 let sequenceSelects
 let phraseBuffers = []
+let playButton
+
+unmute(audioCtx)
 
 const generateNoteNames = (startNote) => {
   const noteNames = Object.keys(noteNamesAndFreqs)
@@ -323,7 +326,7 @@ const createPhrase = () => {
   delButton.id = `delphrase${pIndex}`
   delButton.onclick = deletePhrase
 
-  phraseContainer.appendChild(phraseNo)
+  bpmContainer.appendChild(phraseNo)
   bpmContainer.appendChild(bpmLabel)
   bpmContainer.appendChild(bpm)
   bpmContainer.appendChild(keyLabel)
@@ -481,7 +484,7 @@ const createCharts = () => {
     delButton.id = `delphrase${pIndex}`
     delButton.onclick = deletePhrase
 
-    phraseContainer.appendChild(phraseNo)
+    bpmContainer.appendChild(phraseNo)
     bpmContainer.appendChild(bpmLabel)
     bpmContainer.appendChild(bpm)
     bpmContainer.appendChild(keyLabel)
@@ -572,7 +575,7 @@ const changeSequence = (e) => {
   }
 
   remakeSequenceSelects()
-  generateSound()
+  generateSequence(true)
   history.replaceState(null, '', '?p=' + encodeAll())
 }
 
@@ -689,7 +692,7 @@ const init = () => {
   setOctaves()
   remakeSequenceSelects()
   setNoteLengths()
-  generateSound()
+  generateSound(null, true)
   generateSampleTones()
   gatherColumns()
 
@@ -704,6 +707,8 @@ const init = () => {
       }
     }
   }
+
+  playButton = document.querySelector('#play')
 }
 
 const assignCellClicks = () => {
@@ -728,7 +733,7 @@ const assignCellClicks = () => {
             } else {
               pData[pIndex][tableIndex][dataIndex] = rowIndex
 
-              bufferSource = audioCtx.createBufferSource()
+              let bufferSource = audioCtx.createBufferSource()
               bufferSource.connect(audioCtx.destination)
               bufferSource.buffer = sampleTones[pIndex][tableIndex][rowIndex]
               bufferSource.start()
@@ -888,9 +893,9 @@ const waveFunction = (i) => {
   }
 }
 
-const generateSound = (pIndex) => {
+const generateSound = (pIndex, sequenceChanged=false) => {
   generatePhraseBuffers(pIndex)
-  generateSequence()
+  generateSequence(sequenceChanged)
   prepareDownload()
 }
 
@@ -1075,19 +1080,27 @@ const generatePhraseBuffers = (specificPhrase) => {
   })
 }
 
-const generateSequence = () => {
+const generateSequence = (sequenceChanged=false) => {
   let offset = 0
   let beatsPerMeasure = 4
+  let buffering
 
   timeStops = []
   millisPer16ths = []
   totalMillis = 0
 
-  let len = sequence.reduce((acc, seqNo) => acc = acc + phraseBuffers[seqNo - 1].length, 0)
+  if (sequenceChanged) {
+    let len = sequence.reduce((acc, seqNo) => acc = acc + phraseBuffers[seqNo - 1].length, 0)
+    buffer = audioCtx.createBuffer(1, len, sampleRate)
+  }
 
-  buffer = audioCtx.createBuffer(1, len, sampleRate)
+  buffering = buffer.getChannelData(0)
 
-  let buffering = buffer.getChannelData(0)
+  if (!sequenceChanged) {
+    for (let i = 0; i < buffering.length; i++) {
+      buffering[i] = 0.0
+    }
+  }
 
   sequence.forEach((seqNo, index) => {
     let pIndex = seqNo - 1
@@ -1191,17 +1204,22 @@ const highlightColumn = () => {
 
 const play = () => {
   stop()
+
   bufferSource = audioCtx.createBufferSource()
   bufferSource.connect(audioCtx.destination)
   bufferSource.buffer = buffer
   bufferSource.onended = () => {
     playing = false
     finishTimer()
+    playButton.innerText = 'play'
+    playButton.onclick = play
   }
   playing = true
   timerId = setInterval(highlightColumn, 50)
   timerStart = Date.now()
   bufferSource.start()
+  playButton.innerText = 'stop'
+  playButton.onclick = stop
 }
 
 const finishTimer = () => {
@@ -1223,6 +1241,8 @@ const stop = () => {
     try {
       bufferSource.stop()
       finishTimer()
+      playButton.innerText = 'play'
+      playButton.onclick = play
     } catch (e) {}
   }
 }
