@@ -1,6 +1,23 @@
 <html>
   <head>
     <style>
+      #main {
+        padding: 0 0 0 5px;
+      }
+
+      #actions {
+        position: sticky;
+        top: 0;
+        background-color: white;
+        border-bottom: 1px solid black;
+        padding: 5px;
+      }
+
+      h1 {
+        float: right;
+        margin: 0 20px 0 0;
+      }
+
       h2.no-bottom-margin {
         margin-bottom: 0;
       }
@@ -243,12 +260,12 @@
     <title>quick loops</title>
   </head>
   <body>
-    <h1>quick loops</h1>
-    <div>
+    <div id="actions">
       <button class="action" id="play" onclick="play()">play</button>
       <a id="download" href="#">download</a>
+      <h1>quick loops</h1>
     </div>
-    <div>
+    <div id="main">
       <h2>sequence</h2>
       <div id="sequence">
         <select class="step">
@@ -260,9 +277,9 @@
           <option>1</option>
         </select>
       </div>
-    </div>
-    <h2 class="no-bottom-margin">phrases</h2>
-    <div class="phrases">
+      <h2 class="no-bottom-margin">phrases</h2>
+      <div class="phrases">
+      </div>
     </div>
     <div class="cont gridContainer proto">
       <table>
