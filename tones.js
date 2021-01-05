@@ -21,6 +21,8 @@ let pData
 let tones
 let rootNotes
 let octaves
+let volumes
+let pans
 let noteLengths
 let sequence
 let columns
@@ -117,7 +119,7 @@ const changeTempo = (e) => {
 
   bpms[pIndex] = parseInt(e.target.value)
 
-  generateSound()
+  generateSound(pIndex)
 
   if (restart) {
     play()
@@ -136,7 +138,7 @@ const changeTone = (e) => {
 
   history.replaceState(null, '', '?p=' + encodeAll())
   paintAll()
-  generateSound()
+  generateSound(pIndex)
   generateSampleTones()
 }
 
@@ -151,8 +153,38 @@ const changeOctave = (e) => {
   history.replaceState(null, '', '?p=' + encodeAll())
   generateNotes(pIndex, index)
   paintAll()
-  generateSound()
+  generateSound(pIndex)
   generateSampleTones()
+}
+
+const changeVolume = (e) => {
+  const indexStr = e.target.id.slice(6)
+  const indicies = indexStr.split('-').map(n => parseInt(n))
+  const pIndex = indicies[0]
+  const index = indicies[1]
+
+  volumes[pIndex][index] = parseFloat(e.target.value)
+
+  paintAll()
+  generateSound(pIndex)
+  generateSampleTones()
+
+  history.replaceState(null, '', '?p=' + encodeAll())
+}
+
+const changePan = (e) => {
+  const indexStr = e.target.id.slice(3)
+  const indicies = indexStr.split('-').map(n => parseInt(n))
+  const pIndex = indicies[0]
+  const index = indicies[1]
+
+  pans[pIndex][index] = parseInt(e.target.value)
+
+  paintAll()
+  generateSound(pIndex)
+  generateSampleTones()
+
+  history.replaceState(null, '', '?p=' + encodeAll())
 }
 
 const changeNoteLength = (e) => {
@@ -166,7 +198,7 @@ const changeNoteLength = (e) => {
   history.replaceState(null, '', '?p=' + encodeAll())
   generateNotes(pIndex, index)
   paintAll()
-  generateSound()
+  generateSound(pIndex)
   generateSampleTones()
 }
 
@@ -185,7 +217,7 @@ const changeRoot = (e) => {
   }
 
   paintAll()
-  generateSound()
+  generateSound(pIndex)
   generateSampleTones()
 }
 
@@ -250,6 +282,8 @@ const deleteChart = (e) => {
   tones[pIndex].splice(index, 1)
   octaves[pIndex].splice(index, 1)
   noteLengths[pIndex].splice(index, 1)
+  volumes[pIndex].splice(index, 1)
+  pans[pIndex].splice(index, 1)
   notes[pIndex].splice(index, 1)
 
   while (index < pData[pIndex].length) {
@@ -259,6 +293,8 @@ const deleteChart = (e) => {
     let lis = cont.querySelector('select.tone')
     let oct = cont.querySelector('select.octave')
     let ntl = cont.querySelector('select.notelength')
+    let vol = cont.querySelector('select.volume')
+    let pan = cont.querySelector('select.pan')
 
     cont.id = `container${pIndex}-${index}`
     tab.id = `grid${pIndex}-${index}`
@@ -266,12 +302,14 @@ const deleteChart = (e) => {
     lis.id = `inst${pIndex}-${index}`
     oct.id = `octave${pIndex}-${index}`
     ntl.id = `notelength${pIndex}-${index}`
+    vol.id = `volume${pIndex}-${index}`
+    pan.id = `pan${pIndex}-${index}`
 
     index++
   }
 
   assignCellClicks()
-  generateSound()
+  generateSound(pIndex)
   gatherColumns()
   history.replaceState(null, '', '?p=' + encodeAll())
 }
@@ -349,6 +387,8 @@ const createPhrase = () => {
   rootNotes[pIndex] = 'C'
   octaves[pIndex] = []
   noteLengths[pIndex] = []
+  volumes[pIndex] = []
+  pans[pIndex] = []
   notes[pIndex] = []
   bpms[pIndex] = bpms[pIndex - 1]
   remakeSequenceSelects()
@@ -369,6 +409,8 @@ const createChart = (e) => {
   let oct = gridContainer.querySelector('select.octave')
   let ntl = gridContainer.querySelector('select.notelength')
   let add = phraseContainer.querySelector(`#add${pIndex}`)
+  let vol = gridContainer.querySelector('select.volume')
+  let pan = gridContainer.querySelector('select.pan')
 
   gridContainer.classList.remove('proto')
   gridContainer.id = `container${pIndex}-${gridIndex}`
@@ -382,6 +424,10 @@ const createChart = (e) => {
   oct.onchange = changeOctave
   ntl.id = `notelength${pIndex}-${gridIndex}`
   ntl.onchange = changeNoteLength
+  vol.id = `volume${pIndex}-${gridIndex}`
+  vol.onchange = changeVolume
+  pan.id = `pan${pIndex}-${gridIndex}`
+  pan.onchange = changePan
 
   phraseContainer.insertBefore(gridContainer, add)
 
@@ -389,6 +435,8 @@ const createChart = (e) => {
   tones[pIndex][gridIndex] = 1
   octaves[pIndex][gridIndex] = 3
   noteLengths[pIndex][gridIndex] = 1.0
+  volumes[pIndex][gridIndex] = 1.0
+  pans[pIndex][gridIndex] = 2
   generateNotes(pIndex, gridIndex)
   paintAll()
   setInsts()
@@ -396,7 +444,7 @@ const createChart = (e) => {
   setOctaves()
   setNoteLengths()
   assignCellClicks()
-  generateSound()
+  generateSound(pIndex)
   generateSampleTones()
   gatherColumns()
   history.replaceState(null, '', '?p='.concat(encodeAll()))
@@ -500,6 +548,8 @@ const createCharts = () => {
       let lis = gridContainer.querySelector('select.tone')
       let oct = gridContainer.querySelector('select.octave')
       let ntl = gridContainer.querySelector('select.notelength')
+      let vol = gridContainer.querySelector('select.volume')
+      let pan = gridContainer.querySelector('select.pan')
 
       gridContainer.classList.remove('proto')
       gridContainer.id = `container${pIndex}-${gridIndex}`
@@ -513,6 +563,10 @@ const createCharts = () => {
       oct.onchange = changeOctave
       ntl.id = `notelength${pIndex}-${gridIndex}`
       ntl.onchange = changeNoteLength
+      vol.id = `volume${pIndex}-${gridIndex}`
+      vol.onchange = changeVolume
+      pan.id = `pan${pIndex}-${gridIndex}`
+      pan.onchange = changePan
 
       phraseContainer.appendChild(gridContainer)
     })
@@ -559,6 +613,24 @@ const setNoteLengths = () => {
     noteLengths[pIndex].forEach((noteLength, index) => {
       let n = document.querySelector(`#notelength${pIndex}-${index}`)
       n.value = noteLength.toString()
+    })
+  })
+}
+
+const setVolumes = () => {
+  pData.forEach((phrase, pIndex) => {
+    volumes[pIndex].forEach((volume, index) => {
+      let v = document.querySelector(`#volume${pIndex}-${index}`)
+      v.value = volume.toString()
+    })
+  })
+}
+
+const setPans = () => {
+  pData.forEach((phrase, pIndex) => {
+    pans[pIndex].forEach((pan, index) => {
+      let p = document.querySelector(`#pan${pIndex}-${index}`)
+      p.value = pan
     })
   })
 }
@@ -617,6 +689,8 @@ const init = () => {
   rootNotes = []
   octaves = []
   noteLengths = []
+  volumes = []
+  pans = []
   sequence = []
 
   const params = (new URL(document.location)).searchParams
@@ -640,6 +714,8 @@ const init = () => {
       tones[pIndex] = []
       octaves[pIndex] = []
       noteLengths[pIndex] = []
+      volumes[pIndex] = []
+      pans[pIndex] = []
       notes[pIndex] = []
 
       patterns.forEach((pattern, index) => {
@@ -649,14 +725,18 @@ const init = () => {
           const tone = parseInt(pattern[0])
           const octave = parseInt(pattern[1])
           const noteLength = parseFloat([0.25, 0.5, 0.75, 1.0][parseInt(pattern[2])])
+          const volume     = parseFloat([0.25, 0.5, 0.75, 1.0][parseInt(pattern[3])])
+          const pan = parseInt(pattern[4])
 
           tones[pIndex][index] = tone
           octaves[pIndex][index] = octave
           noteLengths[pIndex][index] = noteLength
+          volumes[pIndex][index] = volume
+          pans[pIndex][index] = pan
           generateNotes(pIndex, index)
 
-          if (pattern.length > 3) {
-            pattern.slice(3)
+          if (pattern.length > 5) {
+            pattern.slice(5)
             .split('')
             .reduce((result, value, i, array) => {
               if (i % 2 === 0)
@@ -680,6 +760,8 @@ const init = () => {
     rootNotes[0] = 'C'
     octaves[0] = [3]
     noteLengths[0] = [1.0]
+    volumes[0] = [1.0]
+    pans[0] = [2]
     notes[0] = []
     generateNotes(0, 0)
   }
@@ -690,6 +772,8 @@ const init = () => {
   setInsts()
   setRoots()
   setOctaves()
+  setVolumes()
+  setPans()
   remakeSequenceSelects()
   setNoteLengths()
   generateSound(null, true)
@@ -826,6 +910,8 @@ const encodePhrase = (pIndex) => {
     beatString = beatString.concat(tones[pIndex][index])
     beatString = beatString.concat(octaves[pIndex][index])
     beatString = beatString.concat([0.25, 0.5, 0.75, 1.0].indexOf(noteLengths[pIndex][index]))
+    beatString = beatString.concat([0.25, 0.5, 0.75, 1.0].indexOf(volumes[pIndex][index]))
+    beatString = beatString.concat(pans[pIndex][index])
 
     data.forEach((noteIndex, index) => {
       if (noteIndex !== null && noteIndex !== undefined) {
@@ -851,6 +937,8 @@ const encodeAll = () => {
       beatString = beatString.concat(tones[pIndex][index])
       beatString = beatString.concat(octaves[pIndex][index])
       beatString = beatString.concat([0.25, 0.5, 0.75, 1.0].indexOf(noteLengths[pIndex][index]))
+      beatString = beatString.concat([0.25, 0.5, 0.75, 1.0].indexOf(volumes[pIndex][index]))
+      beatString = beatString.concat(pans[pIndex][index])
 
       data.forEach((noteIndex, index) => {
         if (noteIndex !== null && noteIndex !== undefined) {
@@ -944,9 +1032,12 @@ const generateSampleTones = () => {
         let samplesPerWave = parseInt(sampleRate / freq)
         let localIndex = 0
         let waveIndex = 0
+        let lengthOffset = (1.0 - noteLengths[i][j]) * subBufferSize
 
-        while (localIndex < subBufferSize) {
+        while (localIndex + lengthOffset < subBufferSize) {
           let sample = waveFunction(tones[i][j])(waveIndex, samplesPerWave)
+
+          sample = sample * volumes[i][j]
 
           if (sample > 1.0)
             sample = 1.0
@@ -965,6 +1056,8 @@ const generateSampleTones = () => {
 
         while (waveIndex < samplesPerWave) {
           let sample = waveFunction(tones[i][j])(waveIndex, samplesPerWave)
+
+          sample = sample * volumes[i][j]
 
           if (sample > 1.0)
             sample = 1.0
@@ -1025,6 +1118,8 @@ const generatePhraseBuffers = (specificPhrase) => {
             let value = someArray[bufferPointer + localIndex] || 0.0
             let sample = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
 
+            sample = sample * volumes[pIndex][gridIndex]
+
             value += sample
 
             if (value > 1.0)
@@ -1047,6 +1142,8 @@ const generatePhraseBuffers = (specificPhrase) => {
           while (waveIndex < samplesPerWave) {
             let value = someArray[bufferPointer + localIndex] || 0.0
             let sample = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
+
+            sample = sample * volumes[pIndex][gridIndex]
 
             value += sample
 

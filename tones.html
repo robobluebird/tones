@@ -60,9 +60,9 @@
 
       .add {
         height: 310px;
-        width: 388px;
+        width: 80px;
         font-size: 80px;
-        margin: auto;
+        margin: 0 0 0 5px;
         display: inline-block;
         text-align: center;
         vertical-align: top;
@@ -82,6 +82,10 @@
       }
 
       .add:hover {
+        background-color: lightgray;
+      }
+
+      #addphrase:hover {
         background-color: lightgray;
       }
 
@@ -298,12 +302,14 @@
         <tr><td>C</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
       </table>
       <button style="float: right;" class="delete">delete</button>
+      <label>wave</wave>
       <select class="tone">
-        <option value=0>square</option>
+        <option value=0>sqr</option>
         <option selected value=1>sine</option>
-        <option value=2>triangle</option>
+        <option value=2>tri</option>
         <option value=3>fuzz</option>
-      <select>
+      </select>
+      <label>octave</label>
       <select class="octave">
         <option value=1>1</option>
         <option value=2>2</option>
@@ -314,12 +320,28 @@
         <option value=7>7</option>
         <option value=8>8</option>
       </select>
+      <label>length</label>
       <select class="notelength">
         <option value=0.25>25%</option>
         <option value=0.5>50%</option>
         <option value=0.75>75%</option>
         <option selected value=1>100%</option>
       </select>
+      <br />
+      <label>volume</label>
+      <select class="volume">
+        <option value=0.25>25%</option>
+        <option value=0.5>50%</option>
+        <option value=0.75>75%</option>
+        <option selected value=1>100%</option>
+      </select>
+      <label>pan</label>
+      <select class="pan">
+        <option value=0>left</option>
+        <option value=1>mid left</option>
+        <option selected value=2>center</option>
+        <option value=3>mid right</option>
+        <option value=4>right</option>
       </select>
     </div>
     <div id="addphrase" onclick="createPhrase()">+</div>
