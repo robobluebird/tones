@@ -266,7 +266,7 @@ const generateNotes = (pIndex, index) => {
   }
 }
 
-const deleteChart = (e) => {
+const deleteGrid = (e) => {
   const indexStr = e.target.id.slice(6)
   const indicies = indexStr.split('-').map(n => parseInt(n))
   const pIndex = indicies[0]
@@ -285,6 +285,7 @@ const deleteChart = (e) => {
   volumes[pIndex].splice(index, 1)
   pans[pIndex].splice(index, 1)
   notes[pIndex].splice(index, 1)
+  sampleTones[pIndex].splice(index, 1)
 
   while (index < pData[pIndex].length) {
     let cont = document.querySelector(`#container${pIndex}-${index + 1}`)
@@ -376,7 +377,7 @@ const createPhrase = () => {
   let add = document.createElement('div')
   add.className = 'add'
   add.id = `add${pIndex}`
-  add.onclick = createChart
+  add.onclick = createGrid
   add.innerText = '+'
 
   phraseContainer.appendChild(add)
@@ -392,10 +393,10 @@ const createPhrase = () => {
   notes[pIndex] = []
   bpms[pIndex] = bpms[pIndex - 1]
   remakeSequenceSelects()
-  createChart({target: {id: `add${pIndex}`}})
+  createGrid({target: {id: `add${pIndex}`}})
 }
 
-const createChart = (e) => {
+const createGrid = (e) => {
   const pIndex = parseInt(e.target.id.slice(3))
   const proto = document.querySelector("div.proto")
   const phrases = document.querySelector('.phrases')
@@ -417,7 +418,7 @@ const createChart = (e) => {
   grid.className = 'grid'
   grid.id = `grid${pIndex}-${gridIndex}`
   deleteButton.id = `delete${pIndex}-${gridIndex}`
-  deleteButton.onclick = deleteChart
+  deleteButton.onclick = deleteGrid
   lis.id = `inst${pIndex}-${gridIndex}`
   lis.onchange = changeTone
   oct.id = `octave${pIndex}-${gridIndex}`
@@ -480,7 +481,7 @@ const deletePhrase = (e) => {
   init()
 }
 
-const createCharts = () => {
+const createGrids = () => {
   const proto = document.querySelector("div.proto")
   const phrases = document.querySelector('.phrases')
 
@@ -556,7 +557,7 @@ const createCharts = () => {
       grid.className = 'grid'
       grid.id = `grid${pIndex}-${gridIndex}`
       deleteButton.id = `delete${pIndex}-${gridIndex}`
-      deleteButton.onclick = deleteChart
+      deleteButton.onclick = deleteGrid
       lis.id = `inst${pIndex}-${gridIndex}`
       lis.onchange = changeTone
       oct.id = `octave${pIndex}-${gridIndex}`
@@ -574,7 +575,7 @@ const createCharts = () => {
     let add = document.createElement('div')
     add.className = 'add'
     add.id = `add${pIndex}`
-    add.onclick = createChart
+    add.onclick = createGrid
     add.innerText = '+'
 
     phraseContainer.appendChild(add)
@@ -766,7 +767,7 @@ const init = () => {
     generateNotes(0, 0)
   }
 
-  createCharts()
+  createGrids()
   assignCellClicks()
   paintAll()
   setInsts()
@@ -1027,7 +1028,8 @@ const generateSampleTones = () => {
       sampleTones[i][j] = []
 
       for (let k = 0; k < notes[i][j].length; k++) {
-        let someArray = []
+        let someArrayL = []
+        let someArrayR = []
         let freq = notes[i][j][k]
         let samplesPerWave = parseInt(sampleRate / freq)
         let localIndex = 0
@@ -1035,16 +1037,24 @@ const generateSampleTones = () => {
         let lengthOffset = (1.0 - noteLengths[i][j]) * subBufferSize
 
         while (localIndex + lengthOffset < subBufferSize) {
-          let sample = waveFunction(tones[i][j])(waveIndex, samplesPerWave)
+          let sampleL = waveFunction(tones[i][j])(waveIndex, samplesPerWave)
+          let sampleR = waveFunction(tones[i][j])(waveIndex, samplesPerWave)
 
-          sample = sample * volumes[i][j]
+          sampleL = sampleL * volumes[i][j] * (1 - pans[i][j] / 4)
+          sampleR = sampleR * volumes[i][j] * (pans[i][j] / 4)
 
-          if (sample > 1.0)
-            sample = 1.0
-          else if (sample < -1.0)
-            sample = -1.0
+          if (sampleL > 1.0)
+            sampleL = 1.0
+          else if (sampleL < -1.0)
+            sampleL = -1.0
 
-          someArray[localIndex] = sample
+          if (sampleR > 1.0)
+            sampleR = 1.0
+          else if (sampleR < -1.0)
+            sampleR = -1.0
+
+          someArrayL[localIndex] = sampleL
+          someArrayR[localIndex] = sampleR
 
           waveIndex++
           localIndex++
@@ -1055,16 +1065,24 @@ const generateSampleTones = () => {
         let carryover = 0
 
         while (waveIndex < samplesPerWave) {
-          let sample = waveFunction(tones[i][j])(waveIndex, samplesPerWave)
+          let sampleL = waveFunction(tones[i][j])(waveIndex, samplesPerWave)
+          let sampleR = waveFunction(tones[i][j])(waveIndex, samplesPerWave)
 
-          sample = sample * volumes[i][j]
+          sampleL = sampleL * volumes[i][j] * (1 - pans[i][j] / 4)
+          sampleR = sampleR * volumes[i][j] * (pans[i][j] / 4)
 
-          if (sample > 1.0)
-            sample = 1.0
-          else if (sample < -1.0)
-            sample = -1.0
+          if (sampleL > 1.0)
+            sampleL = 1.0
+          else if (sampleL < -1.0)
+            sampleL = -1.0
 
-          someArray[localIndex] = sample
+          if (sampleR > 1.0)
+            sampleR = 1.0
+          else if (sampleR < -1.0)
+            sampleR = -1.0
+
+          someArrayL[localIndex] = sampleL
+          someArrayR[localIndex] = sampleR
 
           localIndex++
           waveIndex++
@@ -1072,11 +1090,13 @@ const generateSampleTones = () => {
         }
 
         let realBufferSize = subBufferSize + carryover
-        let buffer = audioCtx.createBuffer(1, realBufferSize, sampleRate)
-        let buffering = buffer.getChannelData(0)
+        let buffer = audioCtx.createBuffer(2, realBufferSize, sampleRate)
+        let bufferingL = buffer.getChannelData(0)
+        let bufferingR = buffer.getChannelData(1)
 
         for (let m = 0; m < realBufferSize; m++) {
-          buffering[m] = someArray[m]
+          bufferingL[m] = someArrayL[m]
+          bufferingR[m] = someArrayR[m]
         }
 
         sampleTones[i][j][k] = buffer
@@ -1101,7 +1121,8 @@ const generatePhraseBuffers = (specificPhrase) => {
     let subBufferSize = Math.round(bufferSize / 16) // just doing 16th notes in 4/4 FOR NOW
     let lastIndex = -1
     let carryover = 0
-    let someArray = Array(bufferSize).fill(0.0)
+    let someArrayL = Array(bufferSize).fill(0.0)
+    let someArrayR = Array(bufferSize).fill(0.0)
 
     phrase.forEach((phraseData, gridIndex) => {
       phraseData.forEach((noteIndex, beatIndex) => {
@@ -1115,24 +1136,33 @@ const generatePhraseBuffers = (specificPhrase) => {
           samplesPerWave = parseInt(sampleRate / freq)
 
           while (localIndex + lengthOffset < subBufferSize) {
-            let value = someArray[bufferPointer + localIndex] || 0.0
-            let sample = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
+            let valueL = someArrayL[bufferPointer + localIndex] || 0.0
+            let valueR = someArrayR[bufferPointer + localIndex] || 0.0
+            let sampleL = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
+            let sampleR = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
 
-            sample = sample * volumes[pIndex][gridIndex]
+            sampleL = sampleL * volumes[pIndex][gridIndex] * (1 - pans[pIndex][gridIndex] / 4)
+            sampleR = sampleR * volumes[pIndex][gridIndex] * (pans[pIndex][gridIndex] / 4)
 
-            value += sample
+            valueL += sampleL
+            valueR += sampleR
 
-            if (value > 1.0)
-              value = 1.0
-            else if (value < -1.0)
-              value = -1.0
+            if (valueL > 1.0)
+              valueL = 1.0
+            else if (valueL < -1.0)
+              valueL = -1.0
 
-            someArray[bufferPointer + localIndex] = value
+            if (valueR > 1.0)
+              valueR = 1.0
+            else if (valueR < -1.0)
+              valueR = -1.0
+
+            someArrayL[bufferPointer + localIndex] = valueL
+            someArrayR[bufferPointer + localIndex] = valueR
 
             waveIndex++
             localIndex++
             lastIndex = beatIndex
-            lastSample = sample
 
             if (waveIndex >= samplesPerWave) waveIndex = 0
           }
@@ -1140,19 +1170,29 @@ const generatePhraseBuffers = (specificPhrase) => {
           carryover = 0
 
           while (waveIndex < samplesPerWave) {
-            let value = someArray[bufferPointer + localIndex] || 0.0
-            let sample = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
+            let valueL = someArrayL[bufferPointer + localIndex] || 0.0
+            let valueR = someArrayR[bufferPointer + localIndex] || 0.0
+            let sampleL = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
+            let sampleR = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
 
-            sample = sample * volumes[pIndex][gridIndex]
+            sampleL = sampleL * volumes[pIndex][gridIndex] * (1 - pans[pIndex][gridIndex] / 4)
+            sampleR = sampleR * volumes[pIndex][gridIndex] * (pans[pIndex][gridIndex] / 4)
 
-            value += sample
+            valueL += sampleL
+            valueR += sampleR
 
-            if (value > 1.0)
-              value = 1.0
-            else if (value < -1.0)
-              value = -1.0
+            if (valueL > 1.0)
+              valueL = 1.0
+            else if (valueL < -1.0)
+              valueL = -1.0
 
-            someArray[bufferPointer + localIndex] = value
+            if (valueR > 1.0)
+              valueR = 1.0
+            else if (valueR < -1.0)
+              valueR = -1.0
+
+            someArrayL[bufferPointer + localIndex] = valueL
+            someArrayR[bufferPointer + localIndex] = valueR
 
             localIndex++
             waveIndex++
@@ -1163,13 +1203,15 @@ const generatePhraseBuffers = (specificPhrase) => {
         }
       })
 
-      bufferSizes[pIndex] = someArray.length
+      bufferSizes[pIndex] = someArrayL.length
 
-      let buffer = audioCtx.createBuffer(1, someArray.length, sampleRate)
-      let buffering = buffer.getChannelData(0)
+      let buffer = audioCtx.createBuffer(2, someArrayL.length, sampleRate)
+      let bufferingL = buffer.getChannelData(0)
+      let bufferingR = buffer.getChannelData(1)
 
-      for (let m = 0; m < someArray.length; m++) {
-        buffering[m] = someArray[m]
+      for (let m = 0; m < someArrayL.length; m++) {
+        bufferingL[m] = someArrayL[m]
+        bufferingR[m] = someArrayR[m]
       }
 
       phraseBuffers[pIndex] = buffer
@@ -1180,7 +1222,8 @@ const generatePhraseBuffers = (specificPhrase) => {
 const generateSequence = (sequenceChanged=false) => {
   let offset = 0
   let beatsPerMeasure = 4
-  let buffering
+  let bufferingL
+  let bufferingR
 
   timeStops = []
   millisPer16ths = []
@@ -1188,14 +1231,16 @@ const generateSequence = (sequenceChanged=false) => {
 
   if (sequenceChanged) {
     let len = sequence.reduce((acc, seqNo) => acc = acc + phraseBuffers[seqNo - 1].length, 0)
-    buffer = audioCtx.createBuffer(1, len, sampleRate)
+    buffer = audioCtx.createBuffer(2, len, sampleRate)
   }
 
-  buffering = buffer.getChannelData(0)
+  bufferingL = buffer.getChannelData(0)
+  bufferingR = buffer.getChannelData(1)
 
   if (!sequenceChanged) {
-    for (let i = 0; i < buffering.length; i++) {
-      buffering[i] = 0.0
+    for (let i = 0; i < bufferingL.length; i++) {
+      bufferingL[i] = 0.0
+      bufferingR[i] = 0.0
     }
   }
 
@@ -1210,14 +1255,16 @@ const generateSequence = (sequenceChanged=false) => {
 
     let bufferSize = bufferSizes[pIndex]
     let phraseBuffer = phraseBuffers[pIndex]
-    let phraseBuffering = phraseBuffer.getChannelData(0)
+    let phraseBufferingL = phraseBuffer.getChannelData(0)
+    let phraseBufferingR = phraseBuffer.getChannelData(1)
 
     totalMillis += millis
     timeStops[index] = totalMillis
     millisPer16ths[index] = interval
 
-    for (let i = 0; i < phraseBuffering.length; i++) {
-      buffering[offset + i] = phraseBuffering[i]
+    for (let i = 0; i < phraseBufferingL.length; i++) {
+      bufferingL[offset + i] = phraseBufferingL[i]
+      bufferingR[offset + i] = phraseBufferingR[i]
     }
 
     offset += bufferSize
