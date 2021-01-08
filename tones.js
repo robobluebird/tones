@@ -700,7 +700,7 @@ const init = () => {
   if (phraseParam !== null && phraseParam !== undefined) {
     const phrases = phraseParam.split('|')
 
-    sequence = phrases.shift().split('').map(n => parseInt(n, 16))
+    sequence = phrases.shift().match(/.{1,2}/g).map(n => parseInt(n, 16))
     
     if (!sequence.length) // if empty sequence, default to [1]
       sequence = [1]
@@ -927,7 +927,7 @@ const encodePhrase = (pIndex) => {
 }
 
 const encodeAll = () => {
-  let beatString = sequence.map(s => s.toString(16)).join('').concat('|')
+  let beatString = sequence.map(s => s.toString(16).toUpperCase().padStart(2, '0')).join('').concat('|')
 
   pData.forEach((phrase, pIndex) => {
     beatString = beatString.concat(bpms[pIndex].toString(16).toUpperCase().padStart(2, '0'))
