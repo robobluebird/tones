@@ -1,0 +1,525 @@
+body {
+  font-size: calc(12px + 0.5vw);
+}
+
+.pb {
+  -webkit-appearance: push-button;
+}
+
+a.noStyle:link {
+  text-decoration: none;
+}
+
+a.noStyle:visited {
+  text-decoration: none;
+}
+
+a.noStyle:hover {
+  text-decoration: none;
+}
+
+a.noStyle:active {
+  text-decoration: none;
+}
+
+input, select, button {
+  font-size: calc(10px + 0.5vw);
+}
+
+.spaceRight {
+  margin-right: 20px;
+}
+
+.qwelAnchor {
+  position: absolute;
+  top: -75px;
+}
+
+input.error {
+  border: 1px solid red;
+}
+
+.commentBody {
+  margin-top: 5px;
+}
+
+.commentButton {
+  -webkit-appearance: button;
+}
+
+.paging {
+  margin-top: 50px;
+}
+
+.miniplay {
+  margin: 15px 0 15px 0;
+  width: 100%;
+}
+
+.commentInput {
+  width: 77%;
+}
+
+.commentButton {
+  width: 22%;
+}
+
+ul {
+  padding: 0;
+  margin: 0;
+  list-style-type: none;
+}
+
+li.qwel:not(:first-child) {
+  margin-top: 50px;
+  position: relative;
+}
+
+li.qwel:first-child {
+  margin-top: 20px;
+  position: relative;
+}
+
+.playAndComms {
+  width: 50vw;
+  font-size: calc(10px + 0.5vw);
+}
+
+label {
+  font-size: calc(10px + 0.5vw);
+}
+
+div.qwel {
+  display: inline-block;
+}
+
+li.comment {
+  padding: 5px 0 5px 0;
+}
+
+li.comment:not(:first-child) {
+  margin-top: 0;
+}
+
+li.comment:not(:last-child) {
+  border-bottom: 1px dashed black;
+}
+
+.qwelGrid {
+  display: inline-block;
+}
+
+#nameline {
+  text-align: center;
+}
+
+#main {
+  padding: 20px;
+  display: inline-block;
+}
+
+#mainq {
+  padding: 0 0 0 20px;
+}
+
+ol {
+  padding: 0;
+  margin: 0;
+  padding-left: 20px;
+}
+
+#actions {
+  z-index: 1;
+  display: flex;
+  position: sticky;
+  top: 0;
+  background-color: white;
+  border-bottom: 1px solid black;
+  padding: 5px 20px 5px 20px;
+}
+
+.col {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.col.left {
+  justify-content: flex-start;
+}
+
+.col.center {
+  justify-content: center;
+}
+
+.col.right {
+  justify-content: flex-end;
+}
+
+h1 {
+  margin: 0;
+  display: inline-block;
+}
+
+h2.no-bottom-margin {
+  margin-bottom: 0;
+}
+
+h3 {
+  display: inline;
+  margin-right: 20px;
+}
+
+.centered {
+  text-align: center;
+}
+
+.tan {
+  background-color: antiquewhite;
+}
+
+.gray {
+  background-color: #777777;
+}
+
+.phrase {
+  padding: 20px 0 20px 0;
+  border-bottom: 1px dashed black;
+}
+
+.phrase button {
+  font-size: calc(8px + 0.5vw);
+}
+
+.phrase label {
+  font-size: calc(8px + 0.5vw);
+}
+
+.phrase select {
+  font-size: calc(8px + 0.5vw);
+}
+
+.error {
+  border-color: red;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+.space {
+  display: inline-block;
+  width: 50px;
+}
+
+.add {
+  height: 310px;
+  width: 80px;
+  font-size: 80px;
+  margin: 0 0 0 5px;
+  display: inline-block;
+  text-align: center;
+  vertical-align: top;
+  line-height: 310px;
+  cursor: pointer;
+  background-color: #EEEEEE;
+}
+
+#addphrase {
+  margin: 20px;
+  cursor: pointer;
+  font-size: 80px;
+  height: 80px;
+  line-height: 80px;
+  text-align: center;
+  background-color: #EEEEEE;
+}
+
+.add:hover {
+  background-color: lightgray;
+}
+
+#addphrase:hover {
+  background-color: lightgray;
+}
+
+.cont {
+  display: inline-block;
+}
+
+table.grid {
+  cursor: pointer;
+}
+
+table.minigrid {
+  display: inline-block;
+}
+
+table.minigrid.proto {
+  display: none;
+}
+
+.proto {
+  display: none;
+}
+
+table.grid td {
+  width: 20px;
+  height: 20px;
+  color: #777;
+}
+
+table.minigrid td {
+  width: calc(1px + 0.5vw);
+  height: calc(3px + 0.5vw);
+  color: #777;
+}
+
+table.grid tr:nth-child(odd) td:nth-child(2n) {
+  background-color: #CCCCCC;
+}
+
+table.grid tr:nth-child(odd) td:nth-child(2n+1) {
+  background-color: #EEEEEE;
+}
+
+table.grid tr:nth-child(even) td:nth-child(even) {
+  background-color: #EEEEEE;
+}
+
+table.grid tr:nth-child(even) td:nth-child(odd) {
+  background-color: #CCCCCC;
+}
+
+table.minigrid tr:nth-child(odd) td:nth-child(2n) {
+  background-color: #CCCCCC;
+}
+
+table.minigrid tr:nth-child(odd) td:nth-child(2n+1) {
+  background-color: #EEEEEE;
+}
+
+table.minigrid tr:nth-child(even) td:nth-child(even) {
+  background-color: #EEEEEE;
+}
+
+table.minigrid tr:nth-child(even) td:nth-child(odd) {
+  background-color: #CCCCCC;
+}
+
+table.grid tr:nth-child(odd) td.on {
+  background-color: red;
+}
+
+table.grid tr:nth-child(even) td.on {
+  background-color: red;
+}
+
+table.grid tr:nth-child(odd) td.black {
+  background-color: black;
+}
+
+table.grid tr:nth-child(even) td.black {
+  background-color: black;
+}
+
+table.grid tr:nth-child(odd) td.tan {
+  background-color: antiquewhite;
+}
+
+table.grid tr:nth-child(even) td.tan {
+  background-color: antiquewhite;
+}
+
+table.grid tr:nth-child(odd) td.red {
+  background-color: red;
+}
+
+table.grid tr:nth-child(odd) td.purple {
+  background-color: purple;
+}
+
+table.grid tr:nth-child(odd) td.blue {
+  background-color: blue;
+}
+
+table.grid tr:nth-child(odd) td.green {
+  background-color: green;
+}
+
+table.grid tr:nth-child(odd) td.orange {
+  background-color: orange;
+}
+
+table.grid tr:nth-child(even) td.red {
+  background-color: red;
+}
+
+table.grid tr:nth-child(even) td.purple {
+  background-color: purple;
+}
+
+table.grid tr:nth-child(even) td.blue {
+  background-color: blue;
+}
+
+table.grid tr:nth-child(even) td.green {
+  background-color: green;
+}
+
+table.grid tr:nth-child(even) td.orange {
+  background-color: orange;
+}
+
+table.grid tr:nth-child(odd) td:hover {
+  background-color: #AAAAAA;
+}
+
+table.grid tr:nth-child(even) td:hover {
+  background-color: #AAAAAA;
+}
+
+table.grid tr:nth-child(odd) td:hover.black {
+  background-color: black;
+}
+
+table.grid tr:nth-child(odd) td:hover.tan {
+  background-color: antiquewhite;
+}
+
+table.grid tr:nth-child(odd) td:hover.red {
+  background-color: red;
+}
+
+table.grid tr:nth-child(odd) td:hover.purple {
+  background-color: purple;
+}
+
+table.grid tr:nth-child(odd) td:hover.blue {
+  background-color: blue;
+}
+
+table.grid tr:nth-child(odd) td:hover.green {
+  background-color: green;
+}
+
+table.grid tr:nth-child(odd) td:hover.orange {
+  background-color: orange;
+}
+
+table.grid tr:nth-child(even) td:hover.red {
+  background-color: red;
+}
+
+table.grid tr:nth-child(even) td:hover.purple {
+  background-color: purple;
+}
+
+table.grid tr:nth-child(even) td:hover.blue {
+  background-color: blue;
+}
+
+table.grid tr:nth-child(even) td:hover.green {
+  background-color: green;
+}
+
+table.grid tr:nth-child(even) td:hover.orange {
+  background-color: orange;
+}
+
+table.grid tr:nth-child(odd) td.gray {
+  background-color: #777777;
+}
+
+table.grid tr:nth-child(even) td.gray {
+  background-color: #777777;
+}
+
+.addloop {
+  text-align: center; 
+  font-size: 80px;
+  height: 80px;
+  line-height: 80px;
+  margin: 20px auto;
+  text-align: center;
+  vertical-align: top;
+  cursor: pointer;
+  background-color: #EEEEEE;
+}
+
+.addloop:hover {
+  background-color: lightgray;
+}
+
+table.minigrid tr:nth-child(odd) td.on {
+  background-color: red;
+}
+
+table.minigrid tr:nth-child(even) td.on {
+  background-color: red;
+}
+
+table.minigrid tr:nth-child(odd) td.black {
+  background-color: black;
+}
+
+table.minigrid tr:nth-child(even) td.black {
+  background-color: black;
+}
+
+table.minigrid tr:nth-child(odd) td.tan {
+  background-color: antiquewhite;
+}
+
+table.minigrid tr:nth-child(even) td.tan {
+  background-color: antiquewhite;
+}
+
+table.minigrid tr:nth-child(odd) td.gray {
+  background-color: #777777;
+}
+
+table.minigrid tr:nth-child(even) td.gray {
+  background-color: #777777;
+}
+
+table.minigrid tr:nth-child(odd) td.red {
+  background-color: red;
+}
+
+table.minigrid tr:nth-child(odd) td.purple {
+  background-color: purple;
+}
+
+table.minigrid tr:nth-child(odd) td.blue {
+  background-color: blue;
+}
+
+table.minigrid tr:nth-child(odd) td.green {
+  background-color: green;
+}
+
+table.minigrid tr:nth-child(odd) td.orange {
+  background-color: orange;
+}
+
+table.minigrid tr:nth-child(even) td.red {
+  background-color: red;
+}
+
+table.minigrid tr:nth-child(even) td.purple {
+  background-color: purple;
+}
+
+table.minigrid tr:nth-child(even) td.blue {
+  background-color: blue;
+}
+
+table.minigrid tr:nth-child(even) td.green {
+  background-color: green;
+}
+
+table.minigrid tr:nth-child(even) td.orange {
+  background-color: orange;
+}

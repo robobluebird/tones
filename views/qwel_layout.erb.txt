@@ -1,0 +1,273 @@
+<html>
+  <head>
+    <style>
+      #main {
+        padding: 0 0 0 5px;
+      }
+
+      #actions {
+        position: sticky;
+        top: 0;
+        background-color: white;
+        border-bottom: 1px solid black;
+        padding: 5px;
+      }
+
+      h1 {
+        float: right;
+        margin: 0 20px 0 0;
+      }
+
+      h2.no-bottom-margin {
+        margin-bottom: 0;
+      }
+
+      h3 {
+        display: inline;
+        margin-right: 20px;
+      }
+
+      .centered {
+        text-align: center;
+      }
+
+      .tan {
+        background-color: antiquewhite;
+      }
+
+      .phrase {
+        padding: 20px 0 20px 0;
+        border-bottom: 1px dashed black;
+      }
+
+      .error {
+        border-color: red;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      .action {
+        font-size: 1.5em;
+      }
+
+      .space {
+        display: inline-block;
+        width: 50px;
+      }
+
+      .add {
+        height: 310px;
+        width: 80px;
+        font-size: 80px;
+        margin: 0 0 0 5px;
+        display: inline-block;
+        text-align: center;
+        vertical-align: top;
+        line-height: 310px;
+        cursor: pointer;
+        background-color: #EEEEEE;
+      }
+
+      #addphrase {
+        margin: 20px;
+        cursor: pointer;
+        font-size: 80px;
+        height: 80px;
+        line-height: 80px;
+        text-align: center;
+        background-color: #EEEEEE;
+      }
+
+      .add:hover {
+        background-color: lightgray;
+      }
+
+      #addphrase:hover {
+        background-color: lightgray;
+      }
+
+      .cont {
+        display: inline-block;
+      }
+
+      .proto {
+        display: none;
+      }
+
+      table.grid {
+        cursor: pointer;
+      }
+
+      table.grid td {
+        width: 20px;
+        height: 20px;
+        color: #777;
+      }
+
+      table.grid tr:nth-child(odd) td:nth-child(2n) {
+        background-color: #CCCCCC;
+      }
+
+      table.grid tr:nth-child(odd) td:nth-child(2n+1) {
+        background-color: #EEEEEE;
+      }
+
+      table.grid tr:nth-child(even) td:nth-child(even) {
+        background-color: #EEEEEE;
+      }
+
+      table.grid tr:nth-child(even) td:nth-child(odd) {
+        background-color: #CCCCCC;
+      }
+
+      table.grid tr:nth-child(odd) td.on {
+        background-color: red;
+      }
+
+      table.grid tr:nth-child(even) td.on {
+        background-color: red;
+      }
+
+      table.grid tr:nth-child(odd) td.black {
+        background-color: black;
+      }
+
+      table.grid tr:nth-child(even) td.black {
+        background-color: black;
+      }
+
+      table.grid tr:nth-child(odd) td.tan {
+        background-color: antiquewhite;
+      }
+
+      table.grid tr:nth-child(even) td.tan {
+        background-color: antiquewhite;
+      }
+
+      table.grid tr:nth-child(odd) td.red {
+        background-color: red;
+      }
+
+      table.grid tr:nth-child(odd) td.purple {
+        background-color: purple;
+      }
+
+      table.grid tr:nth-child(odd) td.blue {
+        background-color: blue;
+      }
+
+      table.grid tr:nth-child(odd) td.green {
+        background-color: green;
+      }
+
+      table.grid tr:nth-child(odd) td.orange {
+        background-color: orange;
+      }
+
+      table.grid tr:nth-child(even) td.red {
+        background-color: red;
+      }
+
+      table.grid tr:nth-child(even) td.purple {
+        background-color: purple;
+      }
+
+      table.grid tr:nth-child(even) td.blue {
+        background-color: blue;
+      }
+
+      table.grid tr:nth-child(even) td.green {
+        background-color: green;
+      }
+
+      table.grid tr:nth-child(even) td.orange {
+        background-color: orange;
+      }
+
+      table.grid tr:nth-child(odd) td:hover {
+        background-color: #AAAAAA;
+      }
+
+      table.grid tr:nth-child(even) td:hover {
+        background-color: #AAAAAA;
+      }
+
+      table.grid tr:nth-child(odd) td:hover.black {
+        background-color: black;
+      }
+
+      table.grid tr:nth-child(odd) td:hover.tan {
+        background-color: antiquewhite;
+      }
+
+      table.grid tr:nth-child(odd) td:hover.red {
+        background-color: red;
+      }
+
+      table.grid tr:nth-child(odd) td:hover.purple {
+        background-color: purple;
+      }
+
+      table.grid tr:nth-child(odd) td:hover.blue {
+        background-color: blue;
+      }
+
+      table.grid tr:nth-child(odd) td:hover.green {
+        background-color: green;
+      }
+
+      table.grid tr:nth-child(odd) td:hover.orange {
+        background-color: orange;
+      }
+
+      table.grid tr:nth-child(even) td:hover.red {
+        background-color: red;
+      }
+
+      table.grid tr:nth-child(even) td:hover.purple {
+        background-color: purple;
+      }
+
+      table.grid tr:nth-child(even) td:hover.blue {
+        background-color: blue;
+      }
+
+      table.grid tr:nth-child(even) td:hover.green {
+        background-color: green;
+      }
+
+      table.grid tr:nth-child(even) td:hover.orange {
+        background-color: orange;
+      }
+
+      .addloop {
+        text-align: center; 
+        font-size: 80px;
+        height: 80px;
+        line-height: 80px;
+        margin: 20px auto;
+        text-align: center;
+        vertical-align: top;
+        cursor: pointer;
+        background-color: #EEEEEE;
+      }
+
+      .addloop:hover {
+        background-color: lightgray;
+      } 
+    </style>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <script type="text/javascript" src="/unmute.min.js"></script>
+    <title>quick loops</title>
+  </head>
+  <body>
+    <%= yield %>
+  </body>
+  <script type="text/javascript" src="/tones2.js"></script>
+  <script type="text/javascript">
+    init()
+  </script>
+</html>
