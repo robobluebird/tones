@@ -2,6 +2,25 @@ body {
   font-size: calc(12px + 0.5vw);
 }
 
+#saveNotice {
+  visibility: hidden;
+  margin-left: 20px;
+}
+
+table.qwelInfo {
+  font-size: calc(12px + 0.5vw);
+}
+
+table.qwelInfo th {
+  text-align: left;
+  padding-right: 20px;
+}
+
+table.qwelInfo td {
+  text-align: left;
+  padding-right: 20px;
+}
+
 .pb {
   -webkit-appearance: push-button;
 }
@@ -70,14 +89,13 @@ ul {
   list-style-type: none;
 }
 
-li.qwel:not(:first-child) {
-  margin-top: 50px;
-  position: relative;
+.qwel {
+  padding-top: 50px;
 }
 
-li.qwel:first-child {
-  margin-top: 20px;
-  position: relative;
+.qwel:not(:last-child) {
+  border-bottom: 1px solid black;
+  padding-bottom: 50px;
 }
 
 .playAndComms {
@@ -87,10 +105,6 @@ li.qwel:first-child {
 
 label {
   font-size: calc(10px + 0.5vw);
-}
-
-div.qwel {
-  display: inline-block;
 }
 
 li.comment {
@@ -134,7 +148,7 @@ ol {
   position: sticky;
   top: 0;
   background-color: white;
-  border-bottom: 1px solid black;
+  border-bottom: 2px solid black;
   padding: 5px 20px 5px 20px;
 }
 

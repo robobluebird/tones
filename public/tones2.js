@@ -797,7 +797,6 @@ const init = () => {
   gatherColumns()
 
   document.onkeydown = (e) => {
-    console.log(e)
     if (e.keyCode === 32) {
       e.preventDefault()
 
@@ -1308,7 +1307,10 @@ const generateSequence = (sequenceChanged=false, enableSave=true) => {
   })
 
   let saveBtn = document.querySelector('#save')
-  if (saveBtn && enableSave) saveBtn.disabled = false
+  if (enableSave) {
+    saveBtn.disabled = false
+    document.querySelector('#saveNotice').style.visibility = 'hidden'
+  }
 }
 
 const squareSample = (index, samplesPerWave, multiplier = 1.0) => {
@@ -1399,7 +1401,6 @@ const save = () => {
   }
 
   if (frenIdStr.length === 0) {
-    console.error("Not logged in.")
     return
   } else {
     frenId = parseInt(frenIdStr)
@@ -1408,11 +1409,10 @@ const save = () => {
   if (qwelIdStr.length > 0) {
     if (qwelFrenIdStr.length === 0 && parseInt(qwelFrenIdStr) !== frenId) {
       console.error("Wrong fren.")
+      return
     }
     
     qwelId = parseInt(qwelIdStr)
-
-    console.log('holy moly', qwelId)
 
     url = url.concat(`/${qwelId}`)
     method = 'PUT'
@@ -1426,12 +1426,12 @@ const save = () => {
     if (this.status == 200) {
       let data = JSON.parse(this.responseText)
 
-      console.log("HEY: ", data, qwelId, 'hi')
-
       if (qwelId) {
         document.querySelector('#save').disabled = true
+        document.querySelector('#saveNotice').style.visibility = 'visible'
       } else {
         window.location.href = `/qwels/${data.id}`
+        document.querySelector('#saveNotice').style.visibility = 'visible'
       }
     } else {
       console.error("BAD: ", this.status, this.responseText)

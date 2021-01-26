@@ -25,8 +25,9 @@
   <div class="col center" id="nameline">
     <input type="text" id="name" name="name" placeholder="name" />
     <% if fren && (@qwel.id.nil? || @qwel.fren_id == fren.id) %>
-      <button id="save" disabled class="action" onclick="save()">save</save>
+      <button id="save" disabled class="action" onclick="save()">save</button>
     <% end %>
+    <span id="saveNotice">saved!</span>
   </div>
   <div class="col right">
     <h1>quick loops</h1>

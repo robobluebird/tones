@@ -43,8 +43,10 @@ helpers do
             updated_at date,
             fren_id integer,
             look_id integer,
+            link_id integer,
             foreign key(fren_id) references frens(id),
             foreign key(look_id) references looks(id)
+            foreign key(link_id) references qwels(id)
           );
 
           create table comments (
@@ -75,6 +77,26 @@ helpers do
     if session[:fren_id]
       @fren ||= Fren.new db.execute("select id, name, last_login from frens where id = ?", session[:fren_id]).first
     end
+  end
+
+  def page
+    @page ||= params[:page] ? params[:page].to_i : 1
+  end
+
+  def page_size
+    @page_size ||= 2
+  end
+
+  def page_count
+    @page_count ||= [(db.execute("select count(id) from qwels").first.first.to_f / page_size).ceil, 1].max
+  end
+
+  def sort
+    @sort ||= params[:sort].to_i
+  end
+
+  def title
+    @title || 'latest tracks'
   end
 end
 
@@ -143,13 +165,8 @@ class Like
   end
 end
 
-get '/' do
-  @page_size = 2
-  @page = params[:page] ? params[:page].to_i : 1
-  @page_count = (db.execute("select count(*) from qwels").first.first / @page_size)
-  @page_count = 1 if @page_count.zero?
-
-  s = case params[:sort].to_i
+def qwels_with_frens_and_like_counts fren_id = nil
+  s = case sort
       when 0
         'qwels.updated_at desc'
       when 1
@@ -164,7 +181,13 @@ get '/' do
         'qwels.updated_at desc'
       end
 
-  @qwels = db.execute("select qwels.id, qwels.name, rep, length, qwels.fren_id, created_at, updated_at, count(likes.qwel_id) as like_count, frens.id, frens.name from qwels inner join frens on qwels.fren_id = frens.id left join likes on qwels.id = likes.qwel_id group by qwels.id order by #{s} limit #{@page_size * (@page - 1)}, #{@page_size}").map do |row|
+  f = fren_id ? " where qwels.fren_id = #{fren_id} " : ' '
+
+  q = "select qwels.id, qwels.name, rep, length, qwels.fren_id, created_at, updated_at, count(likes.qwel_id) as like_count, frens.id, frens.name from qwels inner join frens on qwels.fren_id = frens.id left join likes on qwels.id = likes.qwel_id#{f}group by qwels.id order by #{s} limit #{page_size * (page - 1)}, #{page_size}"
+
+  puts q
+
+  db.execute(q).map do |row|
     q = Qwel.new row[0..7]
     q.fren = Fren.new row[8..9]
 
@@ -181,22 +204,24 @@ get '/' do
 
     q
   end
+end
+
+get '/' do
+  @qwels = qwels_with_frens_and_like_counts
 
   erb :frens
 end
 
 get '/frens/:fren_id/qwels' do
-  fres = db.execute("select id, name from frens where id = ?", params[:fren_id])
-  qres = db.execute("select id, name, rep, fren_id from qwels where fren_id = ?", params[:fren_id])
+  @page_count = [
+    db.execute("select count(id) from qwels where fren_id = ?", params[:fren_id]).first.first / page_size,
+    1
+  ].max
 
-  if fres.empty? && qres.empty?
-    'no qwels for this fren'
-  else
-    @fren = Fren.new fres.first
-    @qwels = qres.map { |q| Qwel.new q }
+  @visit_fren = Fren.new db.execute('select id, name from frens where id = ?', params[:fren_id]).first
+  @qwels = qwels_with_frens_and_like_counts @visit_fren.id
 
-    erb :fren_qwels
-  end
+  erb :frens
 end
 
 get '/frens/new' do
@@ -204,7 +229,7 @@ get '/frens/new' do
 end
 
 get '/frens/:fren_id' do
-  @fren = Fren.new db.execute('select id, name from frens where id = ?', params[:fren_id]).first
+  @visit_fren = Fren.new db.execute('select id, name from frens where id = ?', params[:fren_id]).first
   erb :fren
 end
 
@@ -285,12 +310,7 @@ put '/qwels/:qwel_id' do
   request.body.rewind
 
   attrs = JSON.parse(request.body.read).transform_keys(&:to_sym)
-
-  puts attrs
-
   res = db.execute("select fren_id from qwels where id = #{params[:qwel_id]} limit 1").first
-
-  puts "!", res
 
   halt(404) if res.nil?
   halt(409) if res[0] != session[:fren_id]
@@ -336,7 +356,7 @@ __END__
       <div class="col left">
         <% if fren %>
           <span class="spaceRight">
-            welcome, <%= fren.name %>
+            welcome, <a href="/frens/<%= fren.id %>"><%= fren.name %></a>
           </span>
           <span class="spaceRight">
             <a href="/qwels/new">new qwel</a>
@@ -374,9 +394,6 @@ __END__
   </body>
 </html>
 
-@@ fren
-<h1><%= @fren.name %></h1>
-
 @@ fren_qwels
 <a href='/frens/<%= @fren.id %>/qwels/new'>new qwel</a>
 <ol>
@@ -391,7 +408,7 @@ __END__
 
 @@ frens
 <div>
-  <h2>latest tracks</h2>
+  <h2><%= title || "latest tracks" %></h2>
   <label>sort by</label>
   <select id="sortSelect" onchange="setSort(this)">
     <option selected value=0>most recently updated</option>
@@ -401,35 +418,69 @@ __END__
     <option value=4>shortest length</option>
   </select>
 </div>
-<ol start=<%= ((@page - 1) * @page_size) + 1 %>>
+<div style="margin-top: 20px;" class="paging">
+  <% if page && page > 1 %>
+    <a href="#" onclick="replaceOrAddSearchParam('page', 1); return false;">first</a>
+  <% end %>
+  <% if page && page > 1 %>
+    <a style="margin: 0 10px 0 0;" href="#" onclick="replaceOrAddSearchParam('page', <%= page - 1 %>); return false;">previous</a>
+  <% end %>
+  <% if page && page_count %>
+    <span>page <%= page %> of <%= page_count %></span>
+  <% end %>
+  <% if page && page_count && page < page_count %>
+    <a style="margin: 0 0 0 10px;" href="#" onclick="replaceOrAddSearchParam('page', <%= page + 1 %>); return false;">next</a>
+  <% end %>
+  <% if page && page < page_count %>
+    <a href="#" onclick="replaceOrAddSearchParam('page', <%= page_count %>); return false;">last</a>
+  <% end %>
+</div>
+<div>
   <% @qwels.each do |qwel| %>
-    <li class="qwel">
-      <a class="qwelAnchor" id="qwel<%= qwel.id %>"><a>
+    <div class="qwel" id="qwel<%= qwel.id %>">
       <div class="info">
+        <a class="qwelAnchor" id="qwel<%= qwel.id %>"></a>
         <div>
-          <span>name: <a href="/qwels/<%= qwel.id %>"><%= qwel.name %></a></span>
-          <% if fren %>
-            <% if fren.id == qwel.fren_id %>
-              <a class="noStyle" href="/qwels/<%= qwel.id %>">
-                <button class="pb">edit</button>
-              </a>
-            <% end %>
-            <a class="noStyle" href="/qwels/new?l=<%= qwel.id %>&p=<%= qwel.rep.split('|')[1..-1].unshift('').join('|') %>">
-              <button class="pb">copy</button>
-            </a> 
-          <% end %>
-        </div>
-        <div>created by: <a href="/frens/<%= qwel.fren.id %>"><%= qwel.fren.name %></a></div>
-        <div>length: <%= "#{qwel.length / 60000}:" + "#{(qwel.length / 1000) % 60}".rjust(2, '0') %></div>
-        <div>last updated at: <%= Time.parse(qwel.updated_at).strftime('%l:%M%P %-m/%e/%Y') %></div>
-        <div>
-          <%= qwel.likes.count %> like<%= qwel.likes.count == 1 ? "" : "s" %>
-          <% if fren %>
-            <form autocomplete="off" style="display: inline;"  method="post" action="/qwels/<%= qwel.id %>/<%= fren && qwel.liked?(fren.id) ? "delete_likes" : "likes" %><%= "?#{request.query_string}" unless request.query_string.empty? %>">
-              <input name="fren_id" type="hidden" value=<%= fren.id if fren %> />
-              <input type="submit" value=<%= fren && qwel.liked?(fren.id) ? "unlike" : "like" %> />
-            </form>
-          <% end %>
+          <table class="qwelInfo">
+            <thead>
+              <tr>
+                <th>name</th>
+                <th>created by</th>
+                <th>length</th>
+                <th>last update</th>
+                <th>likes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <a href="/qwels/<%= qwel.id %>"><%= qwel.name %></a>
+                  <% if fren %>
+                    <% if fren.id == qwel.fren_id %>
+                      <a class="noStyle" href="/qwels/<%= qwel.id %>">
+                        <button class="pb">edit</button>
+                      </a>
+                    <% end %>
+                    <a class="noStyle" href="/qwels/new?l=<%= qwel.id %>&p=<%= qwel.rep.split('|')[1..-1].unshift('').join('|') %>">
+                      <button class="pb">copy</button>
+                    </a> 
+                  <% end %>
+                </td>
+                <td><a href="/frens/<%= qwel.fren.id %>"><%= qwel.fren.name %></a></td>
+                <td><%= "#{qwel.length / 60000}:" + "#{(qwel.length / 1000) % 60}".rjust(2, '0') %></td>
+                <td><%= Time.parse(qwel.updated_at).strftime('%l:%M%P %-m/%e/%Y') %></td>
+                <td>
+                  <%= qwel.likes.count %>
+                  <% if fren %>
+                    <form autocomplete="off" style="display: inline;"  method="post" action="/qwels/<%= qwel.id %>/<%= fren && qwel.liked?(fren.id) ? "delete_likes" : "likes" %><%= "?#{request.query_string}" unless request.query_string.empty? %>">
+                      <input name="fren_id" type="hidden" value=<%= fren.id if fren %> />
+                      <input type="submit" value=<%= fren && qwel.liked?(fren.id) ? "unlike" : "like" %> />
+                    </form>
+                  <% end %>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
       <input type="hidden" class="qwelRep" id="qwelRep<%= qwel.id %>" value="<%= qwel.rep %>" />
@@ -455,18 +506,24 @@ __END__
           <% end %>
         </ul>
       </div>
-    </li>
+    </div>
   <% end %>
-</ol>
+</div>
 <div class="paging">
-  <% if @page && @page > 1 %>
-    <a href="#" onclick="replaceOrAddSearchParam('page', <%= @page - 1 %>); return false;">previous</a>
+  <% if page && page > 1 %>
+    <a href="#" onclick="replaceOrAddSearchParam('page', 1); return false;">first</a>
   <% end %>
-  <% if @page && @page_count %>
-    <span style="margin: 0 10px 0 10px;">page <%= @page %> of <%= @page_count %></span>
+  <% if page && page > 1 %>
+    <a style="margin: 0 10px 0 0;" href="#" onclick="replaceOrAddSearchParam('page', <%= page - 1 %>); return false;">previous</a>
   <% end %>
-  <% if @page && @page_count && @page < @page_count %>
-    <a href="#" onclick="replaceOrAddSearchParam('page', <%= @page + 1 %>); return false;">next</a>
+  <% if page && page_count %>
+    <span>page <%= page %> of <%= page_count %></span>
+  <% end %>
+  <% if page && page_count && page < page_count %>
+    <a style="margin: 0 0 0 10px;"href="#" onclick="replaceOrAddSearchParam('page', <%= page + 1 %>); return false;">next</a>
+  <% end %>
+  <% if page && page < page_count %>
+    <a href="#" onclick="replaceOrAddSearchParam('page', <%= page_count %>); return false;">last</a>
   <% end %>
 </div>
 
@@ -514,10 +571,6 @@ __END__
     let container = document.querySelector(`#qwelGrid${id}`)
 
     reps[id].phrases.forEach((phrase, i) => {
-      let phraseContainer = document.createElement('div')
-      phraseContainer.className = "miniphrase"
-      phraseContainer.id = `miniphrase${id}-${i}`
-
       phrase.grids.forEach((gridData, j) => {
         let grid = proto.cloneNode(true)
 
@@ -539,10 +592,8 @@ __END__
           })
         })
 
-        phraseContainer.appendChild(grid)
+        container.appendChild(grid)
       })
-
-      container.appendChild(phraseContainer)
     })
 
     columns[id] = gatherColumns(reps[id], id)
@@ -592,6 +643,12 @@ __END__
     }
   })
 </script>
+
+@@ fren
+<h2><%= @visit_fren.name %></h2>
+<ul>
+  <li><a href="/frens/<%= @visit_fren.id %>/qwels"><%= @visit_fren.name %>'s qwels</a></li>
+</ul>
 
 @@ new_fren
 <form autocomplete="off" action="/frens" method="post" autocomplete="off">
