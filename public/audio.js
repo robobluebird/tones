@@ -1,5 +1,5 @@
-let audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-let bufferSource = audioCtx.createBufferSource()
+let audioCtx
+let bufferSource
 let nowPlaying = null // id of the qwel that is currently playing
 let afterStop = null // callback to do work after bufferSource "onended" callback triggers
 
@@ -351,7 +351,12 @@ const sineSample = (index, samplesPerWave, multiplier = 1.0) => {
 }
 
 const togglePlay = (id) => {
-  let btn = document.querySelector(`#miniplay${id}`)
+  let hint = document.querySelector(`#playHint${id}`)
+
+  if (!audioCtx || !bufferSource) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+    bufferSource = audioCtx.createBufferSource()
+  }
 
   if (loaded === null || loaded === undefined || loadedId === null || loadedId === undefined || id !== loadedId) {
     // { buffer, totalMillis, timeStops, millisPer16ths, sequence: phraseData.sequence }
@@ -360,7 +365,7 @@ const togglePlay = (id) => {
   }
 
   if (nowPlaying === null) {
-    btn.innerText = 'stop'
+    hint.innerText = 'tap to stop'
     nowPlaying = id
     timerId = setInterval(highlightColumn, 20)
     timerStart = Date.now()
@@ -368,15 +373,15 @@ const togglePlay = (id) => {
   } else if (nowPlaying === id) {
     afterStop = () => {
       nowPlaying = null
-      btn.innerText = 'play'
+      hint.innerText = 'tap to play'
     }
 
     stop()
   } else {
     afterStop = () => {
-      let oldBtn = document.querySelector(`#miniplay${nowPlaying}`)
-      oldBtn.innerText = 'play'
-      btn.innerText = 'stop'
+      let oldHint = document.querySelector(`#playHint${nowPlaying}`)
+      oldHint.innerText = 'tap to play'
+      hint.innerText = 'tap to stop'
       nowPlaying = id
       timerId = setInterval(highlightColumn, 50)
       timerStart = Date.now()
@@ -398,8 +403,8 @@ const play = () => {
       afterStop()
       afterStop = null
     } else {
-      let btn = document.querySelector(`#miniplay${nowPlaying}`)
-      btn.innerText = 'play'
+      let hint = document.querySelector(`#playHint${nowPlaying}`)
+      hint.innerText = 'tap to play'
       nowPlaying = null
     }
   }
@@ -433,15 +438,11 @@ const gatherColumns = (data, id) => {
 
   for (let i = 0; i < data.phrases.length; i++) {
     for (let j = 0; j < data.phrases[i].grids.length; j++) {
-      const table = document.querySelector(`#grid${id}-${i}-${j}`)
-      const trs = table.querySelectorAll(':scope tr')
+      const grid = document.querySelector(`#grid${id}-${i}-${j}`)
+      const elems = grid.querySelectorAll(':scope .d .b')
 
-      forEach(trs, (k, tr) => {
-        const tds = tr.querySelectorAll(':scope td')
-
-        forEach(tds, (l, td) => {
-          cols[i][l].push(td)
-        })
+      forEach(elems, (m, elem) => {
+        cols[i][m % 16].push(elem)
       })
     }
   }
@@ -482,8 +483,7 @@ const finishTimer = () => {
   timerId = null
   timerStart = null
 
-  forEach(document.querySelectorAll('td'), (i, td) => td.classList.remove('gray'))
-  // forEach(document.querySelectorAll('select.step'), (i, s) => s.classList.remove('tan'))
+  forEach(document.querySelectorAll('.b'), (i, td) => td.classList.remove('gray'))
 
   lastPlayheadPhrase = null
   lastPlayheadIndex = null

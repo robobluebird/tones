@@ -1,5 +1,26 @@
+html, body, div, span, applet, object, iframe,
+  h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+  a, abbr, acronym, address, big, cite, code,
+  del, dfn, em, img, ins, kbd, q, s, samp,
+  small, strike, strong, sub, sup, tt, var,
+  b, u, i, center,
+  dl, dt, dd, ol, ul, li,
+  fieldset, form, label, legend,
+  table, caption, tbody, tfoot, thead, tr, th, td,
+  article, aside, canvas, details, embed, 
+  figure, figcaption, footer, header, hgroup, 
+  menu, nav, output, ruby, section, summary,
+  time, mark, audio, video {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font: inherit;
+  vertical-align: baseline;
+  font-size: 100%;
+}
+
 body {
-  font-size: calc(12px + 0.5vw);
+  font-size: 3em;
 }
 
 #saveNotice {
@@ -7,22 +28,19 @@ body {
   margin-left: 20px;
 }
 
-table.qwelInfo {
-  font-size: calc(12px + 0.5vw);
-}
-
-table.qwelInfo th {
-  text-align: left;
-  padding-right: 20px;
-}
-
-table.qwelInfo td {
-  text-align: left;
-  padding-right: 20px;
+form {
+  display: inline;
+  margin: 0;
+  margin-block-end: 0;
 }
 
 .pb {
   -webkit-appearance: push-button;
+}
+
+a.fetch {
+  display: block;
+  margin-top: 0.5em;
 }
 
 a.noStyle:link {
@@ -41,8 +59,40 @@ a.noStyle:active {
   text-decoration: none;
 }
 
-input, select, button {
-  font-size: calc(10px + 0.5vw);
+input, select, button, label {
+  font-size: 1em;
+}
+
+
+mainq input, select, button, label {
+  margin-right: 0.25em;
+}
+
+select {
+  appearance: menulist-button;
+  -moz-appearance: menulist-button;
+  -webkit-appearance: menulist-button;
+}
+
+input[type="text"] {
+  margin-top: 0.5em;
+}
+
+input[type="password"] {
+  margin-top: 0.5em;
+}
+
+input[type="submit"] {
+  appearance: button;
+  -moz-appearance: button;
+  -webkit-appearance: button;
+  margin-top: 0.5em;
+}
+
+button {
+  appearance: button;
+  -moz-appearance: button;
+  -webkit-appearance: button;
 }
 
 .spaceRight {
@@ -51,7 +101,16 @@ input, select, button {
 
 .qwelAnchor {
   position: absolute;
-  top: -75px;
+  top: -3em;
+}
+
+.underActions button {
+  margin: 0;
+  width: 15%;
+}
+
+.underActions input {
+  width: 40%;
 }
 
 input.error {
@@ -59,7 +118,7 @@ input.error {
 }
 
 .commentBody {
-  margin-top: 5px;
+  margin: 5px 0 5px 0;
 }
 
 .commentButton {
@@ -67,20 +126,24 @@ input.error {
 }
 
 .paging {
+  margin-top: 20px;
+  font-size: 0.8em;
+}
+
+.paging.bottom {
   margin-top: 50px;
 }
 
 .miniplay {
-  margin: 15px 0 15px 0;
   width: 100%;
+  margin: 15px 0 15px 0;
 }
 
 .commentInput {
-  width: 77%;
+  width: 100%;
 }
 
 .commentButton {
-  width: 22%;
 }
 
 ul {
@@ -90,25 +153,28 @@ ul {
 }
 
 .qwel {
-  padding-top: 50px;
+  border: 1px solid black;
+  border-radius: 10px;
+  padding: 20px;
+  position: relative;
+  margin-top: 50px;
 }
 
 .qwel:not(:last-child) {
-  border-bottom: 1px solid black;
-  padding-bottom: 50px;
+  margin-bottom: 50px;
 }
 
-.playAndComms {
-  width: 50vw;
-  font-size: calc(10px + 0.5vw);
-}
-
-label {
-  font-size: calc(10px + 0.5vw);
+.comms {
+  text-align: right;
+  position: relative;
+  width: 100%;
+  font-size: 0.6em;
+  margin-top: 1em;
 }
 
 li.comment {
-  padding: 5px 0 5px 0;
+  text-align: left;
+  padding: 20px;
 }
 
 li.comment:not(:first-child) {
@@ -120,6 +186,10 @@ li.comment:not(:last-child) {
 }
 
 .qwelGrid {
+  position: relative;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 0.5em;
   display: inline-block;
 }
 
@@ -129,11 +199,32 @@ li.comment:not(:last-child) {
 
 #main {
   padding: 20px;
-  display: inline-block;
+}
+
+@media only screen and (min-width: 960px) {
+/* styles for browsers larger than 960px; */
+  #main {
+  }
+}
+
+@media only screen and (min-width: 1400px) {
+/* styles for browsers larger than 960px; */
+  #main {
+    width: 50%;
+  }
 }
 
 #mainq {
-  padding: 0 0 0 20px;
+  padding: 0 20px 0 20px;
+  font-size: 0.8em;
+}
+
+#mainq h2 {
+  margin: 20px 0 20px 0;
+}
+
+#mainq h3 {
+  display: block;
 }
 
 ol {
@@ -142,14 +233,81 @@ ol {
   padding-left: 20px;
 }
 
+.bpmAndSuch {
+  position: sticky;
+  top: 0;
+  left: 0;
+  margin-bottom: 1em;
+}
+
 #actions {
   z-index: 1;
   display: flex;
+  flex-direction: column;
   position: sticky;
   top: 0;
   background-color: white;
   border-bottom: 2px solid black;
-  padding: 5px 20px 5px 20px;
+  padding: 0.25em 1em 0.5em 1em;
+}
+
+.bottomThing {
+  padding: 0.25em 1em 0.5em 1em;
+  visibility: hidden;
+  padding: 0.25em;
+  font-size: 2em;
+}
+
+.nameLine {
+  text-align: center;
+}
+
+.nameLine input {
+  width: 50%;
+}
+
+.nameLine span {
+  color: green;
+}
+
+#bottomActions {
+  border-top: 2px solid black;
+  padding: 0.25em;
+  font-size: 2em;
+  z-index: 2;
+  background-color: white;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+#bottomActions button {
+  width: 100%;
+}
+
+.step {
+  margin-bottom: 0.5em;
+}
+
+.gridActions {
+  margin-bottom: 0.5em;
+}
+
+.delete {
+  float: right;
+}
+
+.bpmLabel {
+  margin-left: 0.5em;
+}
+
+.innerActions {
+  display: flex;
+  flex-direction: row;
+}
+
+#actions button {
 }
 
 .col {
@@ -162,6 +320,9 @@ ol {
   justify-content: flex-start;
 }
 
+.col.leftBig {
+}
+
 .col.center {
   justify-content: center;
 }
@@ -170,10 +331,6 @@ ol {
   justify-content: flex-end;
 }
 
-h1 {
-  margin: 0;
-  display: inline-block;
-}
 
 h2.no-bottom-margin {
   margin-bottom: 0;
@@ -197,20 +354,17 @@ h3 {
 }
 
 .phrase {
-  padding: 20px 0 20px 0;
-  border-bottom: 1px dashed black;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  white-space: nowrap;
+  padding: 20px;
+  border: 1px solid black;
+  border-radius: 10px;
+  -webkit-overflow-scrolling: touch;
 }
 
-.phrase button {
-  font-size: calc(8px + 0.5vw);
-}
-
-.phrase label {
-  font-size: calc(8px + 0.5vw);
-}
-
-.phrase select {
-  font-size: calc(8px + 0.5vw);
+.phrase:not(:last-child) {
+  margin-bottom: 1em;
 }
 
 .error {
@@ -229,9 +383,8 @@ body {
 
 .add {
   height: 310px;
-  width: 80px;
-  font-size: 80px;
-  margin: 0 0 0 5px;
+  width: 2em;
+  margin: 0 1em 0 0.5em;
   display: inline-block;
   text-align: center;
   vertical-align: top;
@@ -241,11 +394,10 @@ body {
 }
 
 #addphrase {
-  margin: 20px;
+  margin: 1em;
   cursor: pointer;
-  font-size: 80px;
-  height: 80px;
-  line-height: 80px;
+  height: 2em;
+  line-height: 2em;
   text-align: center;
   background-color: #EEEEEE;
 }
@@ -259,200 +411,41 @@ body {
 }
 
 .cont {
+  white-space: normal;
   display: inline-block;
+  font-size: 0.8em;
 }
 
-table.grid {
-  cursor: pointer;
-}
-
-table.minigrid {
+.t {
+  width: 100%;
   display: inline-block;
+  box-sizing: border-box;
+  padding: 1px;
+  font-size: 0.8em;
 }
 
-table.minigrid.proto {
-  display: none;
+.t .d {
+  box-sizing: border-box;
+  display: inline-block;
+  padding: 1px;
+  width: 6.25%;
 }
 
-.proto {
-  display: none;
+.t .d .b {
+  padding-top: 100%;
+  position: relative;
 }
 
-table.grid td {
-  width: 20px;
-  height: 20px;
-  color: #777;
-}
-
-table.minigrid td {
-  width: calc(1px + 0.5vw);
-  height: calc(3px + 0.5vw);
-  color: #777;
-}
-
-table.grid tr:nth-child(odd) td:nth-child(2n) {
-  background-color: #CCCCCC;
-}
-
-table.grid tr:nth-child(odd) td:nth-child(2n+1) {
-  background-color: #EEEEEE;
-}
-
-table.grid tr:nth-child(even) td:nth-child(even) {
-  background-color: #EEEEEE;
-}
-
-table.grid tr:nth-child(even) td:nth-child(odd) {
-  background-color: #CCCCCC;
-}
-
-table.minigrid tr:nth-child(odd) td:nth-child(2n) {
-  background-color: #CCCCCC;
-}
-
-table.minigrid tr:nth-child(odd) td:nth-child(2n+1) {
-  background-color: #EEEEEE;
-}
-
-table.minigrid tr:nth-child(even) td:nth-child(even) {
-  background-color: #EEEEEE;
-}
-
-table.minigrid tr:nth-child(even) td:nth-child(odd) {
-  background-color: #CCCCCC;
-}
-
-table.grid tr:nth-child(odd) td.on {
-  background-color: red;
-}
-
-table.grid tr:nth-child(even) td.on {
-  background-color: red;
-}
-
-table.grid tr:nth-child(odd) td.black {
-  background-color: black;
-}
-
-table.grid tr:nth-child(even) td.black {
-  background-color: black;
-}
-
-table.grid tr:nth-child(odd) td.tan {
-  background-color: antiquewhite;
-}
-
-table.grid tr:nth-child(even) td.tan {
-  background-color: antiquewhite;
-}
-
-table.grid tr:nth-child(odd) td.red {
-  background-color: red;
-}
-
-table.grid tr:nth-child(odd) td.purple {
-  background-color: purple;
-}
-
-table.grid tr:nth-child(odd) td.blue {
-  background-color: blue;
-}
-
-table.grid tr:nth-child(odd) td.green {
-  background-color: green;
-}
-
-table.grid tr:nth-child(odd) td.orange {
-  background-color: orange;
-}
-
-table.grid tr:nth-child(even) td.red {
-  background-color: red;
-}
-
-table.grid tr:nth-child(even) td.purple {
-  background-color: purple;
-}
-
-table.grid tr:nth-child(even) td.blue {
-  background-color: blue;
-}
-
-table.grid tr:nth-child(even) td.green {
-  background-color: green;
-}
-
-table.grid tr:nth-child(even) td.orange {
-  background-color: orange;
-}
-
-table.grid tr:nth-child(odd) td:hover {
-  background-color: #AAAAAA;
-}
-
-table.grid tr:nth-child(even) td:hover {
-  background-color: #AAAAAA;
-}
-
-table.grid tr:nth-child(odd) td:hover.black {
-  background-color: black;
-}
-
-table.grid tr:nth-child(odd) td:hover.tan {
-  background-color: antiquewhite;
-}
-
-table.grid tr:nth-child(odd) td:hover.red {
-  background-color: red;
-}
-
-table.grid tr:nth-child(odd) td:hover.purple {
-  background-color: purple;
-}
-
-table.grid tr:nth-child(odd) td:hover.blue {
-  background-color: blue;
-}
-
-table.grid tr:nth-child(odd) td:hover.green {
-  background-color: green;
-}
-
-table.grid tr:nth-child(odd) td:hover.orange {
-  background-color: orange;
-}
-
-table.grid tr:nth-child(even) td:hover.red {
-  background-color: red;
-}
-
-table.grid tr:nth-child(even) td:hover.purple {
-  background-color: purple;
-}
-
-table.grid tr:nth-child(even) td:hover.blue {
-  background-color: blue;
-}
-
-table.grid tr:nth-child(even) td:hover.green {
-  background-color: green;
-}
-
-table.grid tr:nth-child(even) td:hover.orange {
-  background-color: orange;
-}
-
-table.grid tr:nth-child(odd) td.gray {
-  background-color: #777777;
-}
-
-table.grid tr:nth-child(even) td.gray {
-  background-color: #777777;
+.t .d .b .c {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
 
 .addloop {
   text-align: center; 
-  font-size: 80px;
   height: 80px;
   line-height: 80px;
   margin: 20px auto;
@@ -466,74 +459,68 @@ table.grid tr:nth-child(even) td.gray {
   background-color: lightgray;
 }
 
-table.minigrid tr:nth-child(odd) td.on {
-  background-color: red;
+.gray2 {
+  background-color: #CCCCCC;
 }
 
-table.minigrid tr:nth-child(even) td.on {
-  background-color: red;
+.gray3 {
+  background-color: #EEEEEE;
 }
 
-table.minigrid tr:nth-child(odd) td.black {
-  background-color: black;
-}
-
-table.minigrid tr:nth-child(even) td.black {
-  background-color: black;
-}
-
-table.minigrid tr:nth-child(odd) td.tan {
-  background-color: antiquewhite;
-}
-
-table.minigrid tr:nth-child(even) td.tan {
-  background-color: antiquewhite;
-}
-
-table.minigrid tr:nth-child(odd) td.gray {
+.gray {
   background-color: #777777;
 }
 
-table.minigrid tr:nth-child(even) td.gray {
-  background-color: #777777;
-}
-
-table.minigrid tr:nth-child(odd) td.red {
-  background-color: red;
-}
-
-table.minigrid tr:nth-child(odd) td.purple {
-  background-color: purple;
-}
-
-table.minigrid tr:nth-child(odd) td.blue {
-  background-color: blue;
-}
-
-table.minigrid tr:nth-child(odd) td.green {
-  background-color: green;
-}
-
-table.minigrid tr:nth-child(odd) td.orange {
+.orange {
   background-color: orange;
 }
 
-table.minigrid tr:nth-child(even) td.red {
+.red {
   background-color: red;
 }
 
-table.minigrid tr:nth-child(even) td.purple {
+.purple {
   background-color: purple;
 }
 
-table.minigrid tr:nth-child(even) td.blue {
+.blue {
   background-color: blue;
 }
 
-table.minigrid tr:nth-child(even) td.green {
+.green {
   background-color: green;
 }
 
-table.minigrid tr:nth-child(even) td.orange {
-  background-color: orange;
+h1 {
+  font-size: 2em;
+}
+
+.comment {
+  font-size: 1.0em;
+}
+
+.playHint {
+  z-index: 1;
+  font-size: 0.7em;
+  background-color: black;
+  color: white;
+  font-style: italic;
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 5px 10px 5px 10px;
+}
+
+.sortHolder {
+  font-size: 0.8em;
+  padding: 20px 0 20px 0;
+}
+
+.commentInfo {
+  font-size: 0.9em;
+  font-style: italic;
+}
+
+.proto {
+  display: none;
 }
