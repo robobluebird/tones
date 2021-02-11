@@ -1,26 +1,27 @@
-html, body, div, span, applet, object, iframe,
-  h1, h2, h3, h4, h5, h6, p, blockquote, pre,
-  a, abbr, acronym, address, big, cite, code,
-  del, dfn, em, img, ins, kbd, q, s, samp,
-  small, strike, strong, sub, sup, tt, var,
-  b, u, i, center,
-  dl, dt, dd, ol, ul, li,
-  fieldset, form, label, legend,
-  table, caption, tbody, tfoot, thead, tr, th, td,
-  article, aside, canvas, details, embed, 
-  figure, figcaption, footer, header, hgroup, 
-  menu, nav, output, ruby, section, summary,
-  time, mark, audio, video {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  font: inherit;
-  vertical-align: baseline;
-  font-size: 100%;
+html {
+  font-family: sans-serif;
+  font-size: 2em;
 }
 
-body {
-  font-size: 3em;
+select, button, input, label, form {
+  font-size: 1em;
+}
+
+h1 {
+  margin: 0;
+}
+
+.sortHolder, .paging {
+  font-size: 0.7em;
+}
+
+.secondLine {
+  font-size: 0.6em;
+  margin-top: 0.5em;
+}
+
+.comms, .playHint {
+  font-size: 0.5em;
 }
 
 #saveNotice {
@@ -60,12 +61,10 @@ a.noStyle:active {
 }
 
 input, select, button, label {
-  font-size: 1em;
 }
 
 
 mainq input, select, button, label {
-  margin-right: 0.25em;
 }
 
 select {
@@ -96,12 +95,21 @@ button {
 }
 
 .spaceRight {
-  margin-right: 20px;
+  margin-right: 0.5em;
 }
 
 .qwelAnchor {
   position: absolute;
   top: -3em;
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.qwelAnchor2 {
+  position: absolute;
+  top: -12em;
 }
 
 .underActions button {
@@ -126,8 +134,7 @@ input.error {
 }
 
 .paging {
-  margin-top: 20px;
-  font-size: 0.8em;
+  margin-top: 1em;
 }
 
 .paging.bottom {
@@ -157,18 +164,16 @@ ul {
   border-radius: 10px;
   padding: 20px;
   position: relative;
-  margin-top: 50px;
+  margin-top: 1em;
 }
 
 .qwel:not(:last-child) {
-  margin-bottom: 50px;
 }
 
 .comms {
   text-align: right;
   position: relative;
   width: 100%;
-  font-size: 0.6em;
   margin-top: 1em;
 }
 
@@ -215,12 +220,16 @@ li.comment:not(:last-child) {
 }
 
 #mainq {
-  padding: 0 20px 0 20px;
-  font-size: 0.8em;
+  padding: 0 0.5em 0 0.5em;
+  font-size:  0.8em;
 }
 
 #mainq h2 {
-  margin: 20px 0 20px 0;
+  margin: 0.5em 0 0.5em 0;
+}
+
+#sequence select {
+  margin: 0.25em
 }
 
 #mainq h3 {
@@ -233,11 +242,19 @@ ol {
   padding-left: 20px;
 }
 
+.title {
+  margin: 1em 0 1em 0;
+}
+
 .bpmAndSuch {
   position: sticky;
   top: 0;
   left: 0;
   margin-bottom: 1em;
+}
+
+.bpmAndSuch label, input, button {
+  margin: 0 0.2em;
 }
 
 #actions {
@@ -248,14 +265,13 @@ ol {
   top: 0;
   background-color: white;
   border-bottom: 2px solid black;
-  padding: 0.25em 1em 0.5em 1em;
+  padding: 0.5em;
 }
 
 .bottomThing {
   padding: 0.25em 1em 0.5em 1em;
   visibility: hidden;
   padding: 0.25em;
-  font-size: 2em;
 }
 
 .nameLine {
@@ -273,7 +289,6 @@ ol {
 #bottomActions {
   border-top: 2px solid black;
   padding: 0.25em;
-  font-size: 2em;
   z-index: 2;
   background-color: white;
   position: fixed;
@@ -284,6 +299,8 @@ ol {
 
 #bottomActions button {
   width: 100%;
+  font-size: 1em;
+  margin: 0;
 }
 
 .step {
@@ -299,12 +316,15 @@ ol {
 }
 
 .bpmLabel {
-  margin-left: 0.5em;
 }
 
 .innerActions {
   display: flex;
   flex-direction: row;
+}
+
+.innerActions a {
+  font-size: 0.8em;
 }
 
 #actions button {
@@ -354,10 +374,11 @@ h3 {
 }
 
 .phrase {
+  font-size: 0.7em;
   overflow-x: scroll;
   overflow-y: hidden;
   white-space: nowrap;
-  padding: 20px;
+  padding: 1em;
   border: 1px solid black;
   border-radius: 10px;
   -webkit-overflow-scrolling: touch;
@@ -382,13 +403,14 @@ body {
 }
 
 .add {
-  height: 310px;
+  font-size: 2em;
+  margin: 1em 0.5em 0 0;
+  height: 8em;
   width: 2em;
-  margin: 0 1em 0 0.5em;
   display: inline-block;
   text-align: center;
   vertical-align: top;
-  line-height: 310px;
+  line-height: 8em;
   cursor: pointer;
   background-color: #EEEEEE;
 }
@@ -413,15 +435,15 @@ body {
 .cont {
   white-space: normal;
   display: inline-block;
-  font-size: 0.8em;
 }
 
 .t {
+  font-size: 0.8em;
+  color: #777777;
   width: 100%;
   display: inline-block;
   box-sizing: border-box;
   padding: 1px;
-  font-size: 0.8em;
 }
 
 .t .d {
@@ -491,33 +513,21 @@ body {
   background-color: green;
 }
 
-h1 {
-  font-size: 2em;
-}
-
-.comment {
-  font-size: 1.0em;
-}
-
 .playHint {
   z-index: 1;
-  font-size: 0.7em;
   background-color: black;
   color: white;
   font-style: italic;
   position: absolute;
   top: 0;
   right: 0;
-  padding: 5px 10px 5px 10px;
+  padding: 5px;
 }
 
 .sortHolder {
-  font-size: 0.8em;
-  padding: 20px 0 20px 0;
 }
 
 .commentInfo {
-  font-size: 0.9em;
   font-style: italic;
 }
 

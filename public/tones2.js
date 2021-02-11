@@ -371,12 +371,12 @@ const createPhrase = () => {
   })
 
   let dupButton = document.createElement('button')
-  dupButton.innerText = 'copy'
+  dupButton.innerText = 'copy phrase'
   dupButton.id = `dupphrase${pIndex}`
   dupButton.onclick = duplicatePhrase
 
   let delButton = document.createElement('button')
-  delButton.innerText = 'delete'
+  delButton.innerText = 'delete phrase'
   delButton.id = `delphrase${pIndex}`
   delButton.onclick = deletePhrase
 
@@ -430,8 +430,8 @@ const createGrid = (e) => {
 
   gridContainer.classList.remove('proto')
   gridContainer.id = `container${pIndex}-${gridIndex}`
-  gridContainer.style.width = `${window.innerWidth * 0.75}px`
-  gridContainer.style.margin = '0 20px 0 20px'
+  gridContainer.style.width = `16em`
+  gridContainer.style.margin = '0 1em 0 0'
 
   let a = gridContainer.querySelector('.t')
   a.id = `grid${pIndex}-${gridIndex}`
@@ -580,12 +580,12 @@ const createGrids = () => {
     })
 
     let dupButton = document.createElement('button')
-    dupButton.innerText = 'copy'
+    dupButton.innerText = 'copy phrase'
     dupButton.id = `dupphrase${pIndex}`
     dupButton.onclick = duplicatePhrase
 
     let delButton = document.createElement('button')
-    delButton.innerText = 'delete'
+    delButton.innerText = 'delete phrase'
     delButton.id = `delphrase${pIndex}`
     delButton.onclick = deletePhrase
 
@@ -603,8 +603,8 @@ const createGrids = () => {
 
     phrase.forEach((gridData, gridIndex) => {
       let gridContainer = proto.cloneNode(true)
-      gridContainer.style.width = `${window.innerWidth * 0.75}px`
-      gridContainer.style.margin = '0 20px 0 20px'
+      gridContainer.style.width = `16em`
+      gridContainer.style.margin = '0 1em 0 0'
 
       let a = gridContainer.querySelector('.t')
       a.id = `grid${pIndex}-${gridIndex}`

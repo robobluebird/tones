@@ -11,9 +11,6 @@ helpers do
   def chron time
     t = ((Time.now.utc - time).to_i / 86400).floor
 
-    puts Time.now.utc, 'hi'
-    puts time, 'lo'
-
     case t
     when 0
       'today'
@@ -26,76 +23,70 @@ helpers do
 
   def db
     @db ||= begin
-      db = SQLite3::Database.new "ql.db"
+      db = SQLite3::Database.new "ql2.db"
 
-      qwels_table = db.execute 'select * from sqlite_schema where type = "table" and name = "qwels"'
+      db.execute_batch <<-SQL
+        create table if not exists looks (
+          id integer primary key,
+          rep text,
+          next_look_id integer,
+          foreign key(next_look_id) references looks(look_id)
+        );
 
-      if qwels_table.empty?
-        db.execute_batch <<-SQL
-          create table looks (
-            id integer primary key,
-            rep text,
-            next_look_id integer,
-            foreign key(next_look_id) references looks(look_id)
-          );
+        create table if not exists frens (
+          id integer primary key,
+          name text unique,
+          password_hash text,
+          last_login date,
+          look_id integer,
+          foreign key(look_id) references looks(id)
+        );
 
-          create table frens (
-            id integer primary key,
-            name text unique,
-            password_hash text,
-            last_login date,
-            look_id integer,
-            foreign key(look_id) references looks(id)
-          );
+        create table if not exists forks (
+          id integer primary key,
+          snapshot text,
+          qwel_id integer,
+          fren_id integer,
+          created_at date,
+          foreign key(qwel_id) references qwels(id),
+          foreign key(fren_id) references frens(id)
+        );
 
-          create table forks {
-            id integer primary key,
-            snapshot text,
-            qwel_id integer,
-            fren_id integer,
-            created_at date,
-            foreign_key(qwel_id) references qwels(id)
-            foreign_key(fren_id) references frens(id)
-          }
+        create table if not exists qwels (
+          id integer primary key,
+          name text,
+          rep text,
+          look text,
+          length integer,
+          tags string,
+          created_at date,
+          updated_at date,
+          fren_id integer,
+          look_id integer,
+          fork_id integer,
+          foreign key(fren_id) references frens(id),
+          foreign key(look_id) references looks(id),
+          foreign key(fork_id) references forks(id)
+        );
 
-          create table qwels (
-            id integer primary key,
-            name text,
-            rep text unique,
-            look text,
-            length integer,
-            tags string,
-            created_at date,
-            updated_at date,
-            fren_id integer,
-            look_id integer,
-            link_id integer,
-            fork_id integer,
-            foreign key(fren_id) references frens(id),
-            foreign key(look_id) references looks(id)
-            foreign key(link_id) references qwels(id)
-            foreign key(fork_id) references forks(id)
-          );
+        create table if not exists comments (
+          id integer primary key,
+          body text,
+          created_at date,
+          qwel_id integer,
+          fren_id integer,
+          foreign key(qwel_id) references qwels(id),
+          foreign key(fren_id) references frens(id)
+        );
 
-          create table comments (
-            id integer primary key,
-            body text,
-            created_at date,
-            qwel_id integer,
-            fren_id integer,
-            foreign key(qwel_id) references qwels(id)
-            foreign key(fren_id) references frens(id)
-          );
-
-          create table likes (
-            id integer primary key,
-            fren_id integer,
-            qwel_id integer,
-            foreign key(fren_id) references frens(id),
-            foreign key(qwel_id) references qwels(id)
-          );
-        SQL
-      end
+        create table if not exists likes (
+          id integer primary key,
+          fren_id integer,
+          qwel_id integer,
+          foreign key(fren_id) references frens(id),
+          foreign key(qwel_id) references qwels(id)
+        );
+      SQL
 
       db
     end
@@ -153,9 +144,23 @@ class Comment
   end
 end
 
+class Fork
+  attr_reader :id, :qwel_id, :fren_id, :snapshot, :created_at
+  attr_accessor :qwel, :fren
+
+  def initialize ary = nil
+    if ary.respond_to?(:each)
+      @id = ary[0]
+      @qwel_id = ary[1]
+      @fren_id = ary[2]
+      @snapshot = ary[3]
+    end
+  end
+end
+
 class Qwel
   attr_reader :id, :name, :rep, :length, :tags, :likes, :fren_id, :created_at, :updated_at
-  attr_accessor :fren, :likes, :length, :comments
+  attr_accessor :fren, :likes, :length, :comments, :forks
 
   def initialize ary = nil
     if ary.respond_to?(:each)
@@ -172,14 +177,19 @@ class Qwel
 
     @likes = []
     @comments = []
+    @forks = []
   end
 
   def liked_by? fren_id_or_fren
     f = fren_id_or_fren.is_a?(Fren) ? fren_id_or_fren.id : fren_id_or_fren
 
-    @likes.find do |l|
-      l.fren_id && l.fren_id == f
-    end
+    !!@likes.find { |l| l.fren_id && l.fren_id == f }
+  end
+
+  def forked_by? fren_id_or_fren
+    f = fren_id_or_fren.is_a?(Fren) ? fren_id_or_fren.id : fren_id_or_fren
+
+    !!@forks.find { |f| f.fren_id && f.fren_id == f }
   end
 end
 
@@ -248,8 +258,6 @@ def qwels_with_frens_and_like_counts fren_id = nil, id = nil
 
   q = "select qwels.id, qwels.name, rep, length, qwels.fren_id, created_at, updated_at, count(likes.qwel_id) as like_count, frens.id, frens.name from qwels inner join frens on qwels.fren_id = frens.id left join likes on qwels.id = likes.qwel_id#{f}group by qwels.id order by #{s} limit #{page_size * (page - 1)}, #{page_size}"
 
-  puts q
-
   db.execute(q).map do |row|
     q = Qwel.new row[0..7]
     q.fren = Fren.new row[8..9]
@@ -265,12 +273,15 @@ def qwels_with_frens_and_like_counts fren_id = nil, id = nil
 
     q.likes = db.execute('select id, qwel_id, fren_id from likes where qwel_id = ?', q.id).map { |l| Like.new l }
 
+    q.forks = db.execute('select id, qwel_id, fren_id, snapshot from forks where qwel_id = ?', q.id).map { |f| Fork.new f }
+
     q
   end
 end
 
 get '/random' do
-  @qwel = qwels_with_frens_and_like_counts(nil, random_id(params[:r].to_i)).first
+  id = params[:i] ? params[:i].to_i : random_id(params[:r].to_i)
+  @qwel = qwels_with_frens_and_like_counts(nil, id).first
 
   erb :random
 end
@@ -319,9 +330,7 @@ post '/frens' do
     else
       db.execute 'insert into frens (name, password_hash, last_login) values (?, ?, ?)',
                  [params[:name], Password.create(params[:password]), Time.now.utc.to_s]
-      res = db.execute('select id, name, password_hash from frens where name = ? limit 1', params[:name]).first
-      fren = Fren.new res
-      session[:fren_id] = fren.id
+      session[:fren_id] = db.last_insert_row_id
       redirect to('/')
     end
   rescue SQLite3::ConstraintException => e
@@ -373,10 +382,7 @@ post '/qwels' do
 
   db.execute 'insert into qwels (name, rep, length, fren_id, created_at, updated_at) values (?, ?, ?, ?, ?, ?)', attrs.values_at(:name, :rep, :length, :fren_id) + [t, t]
 
-  res = db.execute 'select id from qwels where name = ? and rep = ? and length = ? and fren_id = ? limit 1',
-        attrs.values_at(:name, :rep, :length, :fren_id)
- 
-  { id: res.first[0] }.to_json
+  { id: db.last_insert_row_id }.to_json
 end
 
 put '/qwels/:qwel_id' do
@@ -394,9 +400,22 @@ put '/qwels/:qwel_id' do
 end
 
 post '/qwels/:qwel_id/fork' do
-  db.execute 'insert into forks (snapshot, qwel_id) values (?, ?, ?)', [Time.now.utc.to_s]
-  l = 'select from forks where ????'
-  redirect to("/qwels/new?l=#{}")
+  q = Qwel.new db.execute('select id, name, rep, length, fren_id from qwels where id = ? limit 1', params[:qwel_id]).first
+
+  t = Time.now.utc.to_s
+
+  db.execute 'insert into forks (snapshot, qwel_id, fren_id, created_at) values (?, ?, ?, ?)', [q.rep, q.id, fren.id, t]
+
+  t = Time.now.utc.to_s
+  name = "#{fren.name}'s #{q.name} fork"
+
+  rep = q.rep.split '|'
+  rep[0] = URI.escape(name, Regexp.new("[^#{URI::PATTERN::UNRESERVED}]"))
+  rep = rep.join '|'
+
+  db.execute 'insert into qwels (name, rep, length, fren_id, fork_id, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?)', [name, rep, q.length, fren.id, db.last_insert_row_id, t, t]
+
+  redirect to("/qwels/#{db.last_insert_row_id}")
 end
 
 get '/logout' do
@@ -409,19 +428,37 @@ post '/qwels/:qwel_id/comments' do
     db.execute 'insert into comments (body, fren_id, qwel_id, created_at) values (?, ?, ?, ?)', [params[:body], params[:fren_id], params[:qwel_id], Time.now.utc.to_s]
   end
 
-  redirect to("#{back}#m#{params[:qwel_id]}")
+  if back.include? 'random'
+    redirect to("/random?i=#{params[:qwel_id]}#m#{params[:qwel_id]}")
+  else
+    redirect to("#{back}#m#{params[:qwel_id]}")
+  end
 end
 
 post '/qwels/:qwel_id/likes' do
   db.execute 'insert into likes (fren_id, qwel_id) values (?, ?)', [params[:fren_id], params[:qwel_id]]
 
-  redirect to("#{back}#q#{params[:qwel_id]}")
+  if back.include? 'random'
+    redirect to("/random?i=#{params[:qwel_id]}#q#{params[:qwel_id]}")
+  else
+    redirect to("#{back}#q#{params[:qwel_id]}")
+  end
 end
 
 post '/qwels/:qwel_id/delete_likes' do
   db.execute 'delete from likes where fren_id = ? and qwel_id = ?', [params[:fren_id], params[:qwel_id]]
 
-  redirect to("#{back}#q#{params[:qwel_id]}")
+  if back.include? 'random'
+    redirect to("/random?i=#{params[:qwel_id]}#q#{params[:qwel_id]}")
+  else
+    redirect to("#{back}#q#{params[:qwel_id]}")
+  end
+end
+
+get '/looks/new' do
+end
+
+post '/looks' do
 end
 
 __END__
@@ -429,6 +466,7 @@ __END__
 @@ layout
 <html>
   <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="/tones.css" rel="stylesheet" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <script src="/audio.js"></script>
@@ -484,18 +522,18 @@ __END__
     <option value=4>shortest</option>
   </select>
 </div>
-<div style="margin-top: 20px;" class="paging">
+<div class="paging">
   <% if page && page > 1 %>
     <a href="#" onclick="replaceOrAddSearchParam('page', 1); return false;">first</a>
   <% end %>
   <% if page && page > 1 %>
-    <a style="margin: 0 10px 0 0;" href="#" onclick="replaceOrAddSearchParam('page', <%= page - 1 %>); return false;">previous</a>
+    <a href="#" onclick="replaceOrAddSearchParam('page', <%= page - 1 %>); return false;">prev</a>
   <% end %>
   <% if page && page_count %>
     <span>page <%= page %> of <%= page_count %></span>
   <% end %>
   <% if page && page_count && page < page_count %>
-    <a style="margin: 0 0 0 10px;" href="#" onclick="replaceOrAddSearchParam('page', <%= page + 1 %>); return false;">next</a>
+    <a href="#" onclick="replaceOrAddSearchParam('page', <%= page + 1 %>); return false;">next</a>
   <% end %>
   <% if page && page < page_count %>
     <a href="#" onclick="replaceOrAddSearchParam('page', <%= page_count %>); return false;">last</a>
@@ -515,13 +553,13 @@ __END__
     <a href="#" onclick="replaceOrAddSearchParam('page', 1); return false;">first</a>
   <% end %>
   <% if page && page > 1 %>
-    <a style="margin: 0 10px 0 0;" href="#" onclick="replaceOrAddSearchParam('page', <%= page - 1 %>); return false;">previous</a>
+    <a href="#" onclick="replaceOrAddSearchParam('page', <%= page - 1 %>); return false;">prev</a>
   <% end %>
   <% if page && page_count %>
     <span>page <%= page %> of <%= page_count %></span>
   <% end %>
   <% if page && page_count && page < page_count %>
-    <a style="margin: 0 0 0 10px;"href="#" onclick="replaceOrAddSearchParam('page', <%= page + 1 %>); return false;">next</a>
+    <a href="#" onclick="replaceOrAddSearchParam('page', <%= page + 1 %>); return false;">next</a>
   <% end %>
   <% if page && page < page_count %>
     <a href="#" onclick="replaceOrAddSearchParam('page', <%= page_count %>); return false;">last</a>
@@ -576,9 +614,9 @@ __END__
 
 @@ new_fren
 <form autocomplete="off" action="/frens" method="post" autocomplete="off">
-  <input type="text" name="name" placeholder="name" /> 
+  <input class="fullWidth" type="text" name="name" placeholder="name" /> 
   <br />
-  <input type="password" name="password" placeholder="password" /> 
+  <input class="fullWidth" type="password" name="password" placeholder="password" /> 
   <br />
   <input type="submit" value="submit" />
 </form>
@@ -589,7 +627,7 @@ __END__
   <div>
     <a href="/qwels/<%= qwel.id %>"><%= qwel.name %></a>
   </div>
-  <div style="font-size: 0.6em; margin-top: 0.5em;">
+  <div class="secondLine">
     <a href="/frens/<%= qwel.fren.id %>"><%= qwel.fren.name %></a>
     <div style="background-color: red; display: inline-block; width: 1em;">
       <div style="padding-top: 100%;"></div>
@@ -605,7 +643,7 @@ __END__
         <input type="submit" value=<%= fren && qwel.liked_by?(fren.id) ? "unlike" : "like" %> />
       </form>
     <% end %>
-    <% if fren %>
+    <% if fren && qwel.fren_id != fren.id && !qwel.forked_by?(fren)  %>
       <form method="POST" action="/qwels/<%= qwel.id %>/fork">
         <input type="submit" value="fork" />
       </form>
@@ -616,7 +654,7 @@ __END__
     <div class="playHint" id="playHint<%= qwel.id %>">tap to play</div>
   </div>
   <div class="comms">
-    <a class="qwelAnchor" id="m<%= qwel.id %>"></a>
+    <a class="qwelAnchor2" id="m<%= qwel.id %>"></a>
     <% if fren %>
       <form class="commentForm" id="commentForm<%= qwel.id %>" autocomplete="off" method="post" action="/qwels/<%= qwel.id %>/comments<%= "?#{request.query_string}" unless request.query_string.empty? %>">
         <input name="fren_id" type="hidden" value=<%= fren.id %> />
