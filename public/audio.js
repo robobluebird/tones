@@ -353,8 +353,12 @@ const sineSample = (index, samplesPerWave, multiplier = 1.0) => {
 const togglePlay = (id) => {
   let hint = document.querySelector(`#playHint${id}`)
 
-  if (!audioCtx || !bufferSource) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+  if (!bufferSource) {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+      unmute(audioCtx)
+    }
+
     bufferSource = audioCtx.createBufferSource()
   }
 

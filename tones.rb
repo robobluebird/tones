@@ -1,11 +1,14 @@
+require 'bazaar'
+require 'bcrypt'
 require 'sinatra'
 require 'sqlite3'
-require 'bcrypt'
 require 'time'
 
 include BCrypt
 
 enable :sessions
+
+class String; def humanize; self.capitalize; end; end
 
 helpers do
   def chron time
@@ -23,23 +26,20 @@ helpers do
 
   def db
     @db ||= begin
-      db = SQLite3::Database.new "ql2.db"
+      db = SQLite3::Database.new "ql3.db"
 
       db.execute_batch <<-SQL
         create table if not exists looks (
           id integer primary key,
-          rep text,
-          next_look_id integer,
-          foreign key(next_look_id) references looks(look_id)
+          rep text
         );
 
         create table if not exists frens (
           id integer primary key,
           name text unique,
           password_hash text,
-          last_login date,
-          look_id integer,
-          foreign key(look_id) references looks(id)
+          look text,
+          last_login date
         );
 
         create table if not exists forks (
@@ -56,22 +56,20 @@ helpers do
           id integer primary key,
           name text,
           rep text,
-          look text,
           length integer,
-          tags string,
+          look text,
           created_at date,
           updated_at date,
           fren_id integer,
-          look_id integer,
           fork_id integer,
           foreign key(fren_id) references frens(id),
-          foreign key(look_id) references looks(id),
           foreign key(fork_id) references forks(id)
         );
 
         create table if not exists comments (
           id integer primary key,
           body text,
+          look text,
           created_at date,
           qwel_id integer,
           fren_id integer,
@@ -81,6 +79,7 @@ helpers do
 
         create table if not exists likes (
           id integer primary key,
+          look text,
           fren_id integer,
           qwel_id integer,
           foreign key(fren_id) references frens(id),
@@ -92,9 +91,9 @@ helpers do
     end
   end
 
-  def fren 
+  def current_fren 
     if session[:fren_id]
-      @fren ||= Fren.new db.execute("select id, name, last_login from frens where id = ?", session[:fren_id]).first
+      @fren ||= Fren.new db.execute("select id, name, look, last_login from frens where id = ?", session[:fren_id]).first
     end
   end
 
@@ -115,32 +114,50 @@ helpers do
   end
 
   def title
-    @title || 'latest tracks'
+    @title
+  end
+
+  def xhr?
+    request.xhr? || request.content_type == "application/json"
+  end
+
+  def get_qwel id
+    Qwel.new db.execute("select id, name, rep, length, look, fren_id, created_at, updated_at, fork_id from qwels where id = ? limit 1", id).first
+  end
+end
+
+before do
+  if xhr?
+    request.body.rewind
+    params.merge! JSON.parse(request.body.read).transform_keys(&:to_sym)
   end
 end
 
 class Fren
-  attr_reader :id, :name, :password_hash
+  attr_reader :id, :name, :look, :last_login, :password_hash
 
   def initialize ary = nil
     if ary.respond_to?(:each)
       @id = ary[0]
       @name = ary[1]
-      @password_hash = ary[2]
+      @look = ary[2]
+      @last_login = Time.parse(ary[3]) if ary[3]
+      @password_hash = ary[4]
     end
   end
 end
 
 class Comment
-  attr_reader :id, :body, :fren_id, :qwel_id, :created_at
+  attr_reader :id, :body, :look, :fren_id, :qwel_id, :created_at
   attr_accessor :fren, :qwel
 
   def initialize ary = nil
     @id = ary[0]
     @body = ary[1]
-    @fren_id = ary[2]
-    @qwel_id = ary[3]
-    @created_at = ary[4]
+    @look = ary[2]
+    @fren_id = ary[3]
+    @qwel_id = ary[4]
+    @created_at = Time.parse(ary[5]) if ary[5]
   end
 end
 
@@ -159,8 +176,8 @@ class Fork
 end
 
 class Qwel
-  attr_reader :id, :name, :rep, :length, :tags, :likes, :fren_id, :created_at, :updated_at
-  attr_accessor :fren, :likes, :length, :comments, :forks
+  attr_reader :id, :name, :rep, :length, :tags, :likes, :fren_id, :fork_id, :created_at, :updated_at
+  attr_accessor :fren, :likes, :length, :comments, :forks, :forked_from
 
   def initialize ary = nil
     if ary.respond_to?(:each)
@@ -168,9 +185,12 @@ class Qwel
       @name = ary[1]
       @rep = ary[2]
       @length = ary[3]
-      @fren_id = ary[4]
-      @created_at = ary[5]
-      @updated_at = ary[6]
+      @look = ary[4]
+      @fren_id = ary[5]
+      @created_at = Time.parse(ary[6]) if ary[6]
+      @updated_at = Time.parse(ary[7]) if ary[7]
+      @fork_id = ary[8]
+      @like_count = ary[9]
     else
       @rep = ""
     end
@@ -194,12 +214,13 @@ class Qwel
 end
 
 class Like
-  attr_reader :id, :qwel_id, :fren_id
+  attr_reader :id, :look, :qwel_id, :fren_id
 
   def initialize ary
     @id = ary[0]
-    @qwel_id = ary[1]
-    @fren_id = ary[2]
+    @look = ary[1]
+    @qwel_id = ary[2]
+    @fren_id = ary[3]
   end
 end
 
@@ -232,7 +253,25 @@ def random_id no = nil
   r
 end
 
-def qwels_with_frens_and_like_counts fren_id = nil, id = nil
+def get_comments qwel_id = nil, comment_id = nil
+  w = if qwel_id
+        ' where comments.qwel_id = ? '
+      elsif comment_id
+        ' where comments.id = ? '
+      else
+        ' '
+      end
+
+  cres = db.execute "select comments.id, body, comments.look, fren_id, qwel_id, created_at, frens.id, name, frens.look from comments inner join frens on frens.id = comments.fren_id#{w}order by created_at desc", qwel_id || comment_id
+
+  cres.map do |c|
+    com = Comment.new c[0..5]
+    com.fren = Fren.new c[6..8]
+    com
+  end
+end
+
+def qwels_with_frens_and_like_counts fren_id = nil, id = nil, like_fren_id = nil
   s = case sort
       when 0
         'qwels.updated_at desc'
@@ -248,7 +287,9 @@ def qwels_with_frens_and_like_counts fren_id = nil, id = nil
         'qwels.updated_at desc'
       end
 
-  f = if id
+  f = if like_fren_id
+        " where likes.fren_id = #{like_fren_id} "
+      elsif id
         " where qwels.id = #{id} "
       elsif fren_id
         " where qwels.fren_id = #{fren_id} "
@@ -256,24 +297,25 @@ def qwels_with_frens_and_like_counts fren_id = nil, id = nil
         ' '
       end
 
-  q = "select qwels.id, qwels.name, rep, length, qwels.fren_id, created_at, updated_at, count(likes.qwel_id) as like_count, frens.id, frens.name from qwels inner join frens on qwels.fren_id = frens.id left join likes on qwels.id = likes.qwel_id#{f}group by qwels.id order by #{s} limit #{page_size * (page - 1)}, #{page_size}"
+  q = "select qwels.id, qwels.name, rep, length, qwels.look, qwels.fren_id, created_at, updated_at, fork_id, count(likes.qwel_id) as like_count, frens.id, frens.name, frens.look from qwels inner join frens on qwels.fren_id = frens.id left join likes on qwels.id = likes.qwel_id#{f}group by qwels.id order by #{s} limit #{page_size * (page - 1)}, #{page_size}"
 
   db.execute(q).map do |row|
-    q = Qwel.new row[0..7]
-    q.fren = Fren.new row[8..9]
+    q = Qwel.new row[0..9]
+    q.fren = Fren.new row[10..12]
+    q.comments = get_comments q.id
 
-    cres = db.execute 'select comments.id, body, fren_id, qwel_id, created_at, frens.id, name from comments inner join frens on frens.id = comments.fren_id where comments.qwel_id = ? order by created_at desc', q.id
-
-    q.comments = cres.map do |c|
-      com = Comment.new c[0..4]
-      com.qwel = q
-      com.fren = Fren.new c[5..6]
-      com
-    end
-
-    q.likes = db.execute('select id, qwel_id, fren_id from likes where qwel_id = ?', q.id).map { |l| Like.new l }
+    q.likes = db.execute('select id, look, qwel_id, fren_id from likes where qwel_id = ?', q.id).map { |l| Like.new l }
 
     q.forks = db.execute('select id, qwel_id, fren_id, snapshot from forks where qwel_id = ?', q.id).map { |f| Fork.new f }
+
+    if q.fork_id
+      qfres = db.execute('select qwels.id, qwels.name, frens.id, frens.name, frens.look from qwels inner join frens on qwels.fren_id = frens.id inner join forks on qwels.id = forks.qwel_id where forks.id = ? limit 1', q.fork_id).first
+
+      qf = Qwel.new qfres[0..1]
+      qf.fren = Fren.new qfres[2..4]
+
+      q.forked_from = qf
+    end
 
     q
   end
@@ -288,7 +330,6 @@ end
 
 get '/' do
   @qwels = qwels_with_frens_and_like_counts
-  @title = discern_title
 
   erb :qwels
 end
@@ -299,9 +340,22 @@ get '/frens/:fren_id/qwels' do
     1
   ].max
 
-  @visit_fren = Fren.new db.execute('select id, name from frens where id = ?', params[:fren_id]).first
+  @visit_fren = Fren.new db.execute('select id, name, look from frens where id = ?', params[:fren_id]).first
   @qwels = qwels_with_frens_and_like_counts @visit_fren.id
-  @title = discern_title @visit_fren
+  @title = "#{@visit_fren.name}'s qwels"
+
+  erb :qwels
+end
+
+get '/frens/:fren_id/likes' do
+  @page_count = [
+    db.execute("select count(id) from likes where fren_id = ?", params[:fren_id]).first.first / page_size,
+    1
+  ].max
+
+  @visit_fren = Fren.new db.execute('select id, name, look from frens where id = ?', params[:fren_id]).first
+  @qwels = qwels_with_frens_and_like_counts nil, nil, params[:fren_id]
+  @title = "qwels #{@visit_fren.name} likes"
 
   erb :qwels
 end
@@ -311,27 +365,56 @@ get '/frens/new' do
 end
 
 get '/frens/:fren_id' do
-  @visit_fren = Fren.new db.execute('select id, name from frens where id = ?', params[:fren_id]).first
+  @visit_fren = Fren.new db.execute('select id, name, look from frens where id = ?', params[:fren_id]).first
   erb :fren
+end
+
+get '/frens/:fren_id/look' do
+  look = db.execute('select look from frens where id = ?', params[:fren_id]).first.first
+  erb :look, locals: {
+    look: look,
+    editable: current_fren && current_fren.id == params[:fren_id].to_i,
+    form_action: "/frens/#{params[:fren_id]}/look",
+    form_method: "post"
+  }
+end
+
+post '/frens/:fren_id/look' do
+  if current_fren && current_fren.id == params[:fren_id].to_i
+    db.execute 'update frens set look = ? where id = ?', [params[:look], params[:fren_id]]
+  end
+
+  redirect to back
 end
 
 post '/frens' do
   begin
-    res = db.execute('select id, name, password_hash from frens where name = ? limit 1', params[:name]).first
-    fren = Fren.new res
+    if !params[:name] || !params[:password] || params[:name].length.zero? || params[:password].length.zero?
+      redirect to('/frens/new?e=Provide both a name and password.')
+    elsif params[:name].gsub(/\ +/, '').length.zero?
+      redirect to('/frens/new?e=Trying to trick me?')
+    end
 
-    if fren.name
-      if Password.new(fren.password_hash) == params[:password]
-        session[:fren_id] = fren.id
-        redirect to('/')
+    f = Fren.new db.execute('select id, name, look, last_login, password_hash from frens where name = ? limit 1', params[:name]).first
+
+    if f.name
+      if Password.new(f.password_hash) == params[:password]
+        db.execute 'update frens set last_login = ? where id = ?', [Time.now.utc.to_s, f.id]
+        session[:fren_id] = f.id
+        
+        if f.look.nil?
+          redirect to("/frens/#{f.id}/look")
+        else
+          redirect to('/')
+        end
       else
-        redirect to("/frens/new?e=Incorrect password.")
+        redirect to("/frens/new?name=#{f.name}&e=1")
       end
     else
       db.execute 'insert into frens (name, password_hash, last_login) values (?, ?, ?)',
                  [params[:name], Password.create(params[:password]), Time.now.utc.to_s]
       session[:fren_id] = db.last_insert_row_id
-      redirect to('/')
+      redirect to("/frens/#{db.last_insert_row_id}/look")
     end
   rescue SQLite3::ConstraintException => e
     a = <<-ERR
@@ -340,7 +423,7 @@ post '/frens' do
       <a href="/frens/new">back.</a>
     ERR
 
-    erb a, locals: { msg: e.message }
+    erb a, locals: {msg: e.message}
   end
 end
 
@@ -357,63 +440,50 @@ get '/qwels/new' do
 end
 
 get '/qwels/:qwel_id' do
-  qres = db.execute("select id, name, rep, length, fren_id from qwels where id = ? limit 1", params[:qwel_id])
+  @qwel = get_qwel params[:qwel_id]
 
-  if qres.empty?
-    'no qwel for this'
-  else
-    @qwel = Qwel.new qres.first
-
-    erb :qwel, layout: :qwel_layout
-  end
+  erb :qwel, layout: :qwel_layout
 end
 
 post '/qwels' do
-  request.body.rewind
-
-  attrs = JSON.parse(request.body.read).transform_keys(&:to_sym)
-
-  unless attrs[:name].to_s.length > 0 && attrs[:rep].to_s.length > 0 &&
-         attrs[:length].is_a?(Numeric) && attrs[:fren_id].is_a?(Numeric)
+  unless params[:name].to_s.length > 0 && params[:rep].to_s.length > 0 &&
+         params[:length].is_a?(Numeric) && params[:fren_id].is_a?(Numeric)
     halt 500
   end
 
   t = Time.now.utc.to_s
 
-  db.execute 'insert into qwels (name, rep, length, fren_id, created_at, updated_at) values (?, ?, ?, ?, ?, ?)', attrs.values_at(:name, :rep, :length, :fren_id) + [t, t]
+  db.execute 'insert into qwels (name, rep, length, fren_id, created_at, updated_at) values (?, ?, ?, ?, ?, ?)', params.values_at(:name, :rep, :length, :fren_id) + [t, t]
 
   { id: db.last_insert_row_id }.to_json
 end
 
 put '/qwels/:qwel_id' do
-  request.body.rewind
-
-  attrs = JSON.parse(request.body.read).transform_keys(&:to_sym)
   res = db.execute("select fren_id from qwels where id = #{params[:qwel_id]} limit 1").first
 
   halt(404) if res.nil?
-  halt(409) if res[0] != session[:fren_id]
+  halt(401) if res[0] != current_fren.id 
 
-  db.execute "update qwels set name = ?, rep = ?, length = ?, updated_at = ? where id = #{params[:qwel_id]}", attrs.values_at(:name, :rep, :length) + [Time.now.utc.to_s]
+  db.execute "update qwels set name = ?, rep = ?, length = ?, updated_at = ? where id = #{params[:qwel_id]}", params.values_at(:name, :rep, :length) + [Time.now.utc.to_s]
 
   { id: params[:qwel_id] }.to_json
 end
 
 post '/qwels/:qwel_id/fork' do
-  q = Qwel.new db.execute('select id, name, rep, length, fren_id from qwels where id = ? limit 1', params[:qwel_id]).first
+  q = get_qwel params[:qwel_id]
 
   t = Time.now.utc.to_s
 
-  db.execute 'insert into forks (snapshot, qwel_id, fren_id, created_at) values (?, ?, ?, ?)', [q.rep, q.id, fren.id, t]
+  db.execute 'insert into forks (snapshot, qwel_id, fren_id, created_at) values (?, ?, ?, ?)', [q.rep, q.id, current_fren.id, t]
 
   t = Time.now.utc.to_s
-  name = "#{fren.name}'s #{q.name} fork"
+  name = "#{current_fren.name}'s #{q.name} fork"
 
   rep = q.rep.split '|'
   rep[0] = URI.escape(name, Regexp.new("[^#{URI::PATTERN::UNRESERVED}]"))
   rep = rep.join '|'
 
-  db.execute 'insert into qwels (name, rep, length, fren_id, fork_id, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?)', [name, rep, q.length, fren.id, db.last_insert_row_id, t, t]
+  db.execute 'insert into qwels (name, rep, length, fren_id, fork_id, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?)', [name, rep, q.length, current_fren.id, db.last_insert_row_id, t, t]
 
   redirect to("/qwels/#{db.last_insert_row_id}")
 end
@@ -424,41 +494,83 @@ get '/logout' do
 end
 
 post '/qwels/:qwel_id/comments' do
-  if params[:fren_id]
-    db.execute 'insert into comments (body, fren_id, qwel_id, created_at) values (?, ?, ?, ?)', [params[:body], params[:fren_id], params[:qwel_id], Time.now.utc.to_s]
+  unless params[:body] &&
+         params[:fren_id] &&
+         params[:qwel_id] &&
+         current_fren &&
+         current_fren.id == params[:fren_id].to_i
+    halt 400
   end
+  
+  db.execute 'insert into comments (body, fren_id, qwel_id, created_at) values (?, ?, ?, ?)', [params[:body], params[:fren_id], params[:qwel_id], Time.now.utc.to_s]
 
-  if back.include? 'random'
-    redirect to("/random?i=#{params[:qwel_id]}#m#{params[:qwel_id]}")
+  if xhr?
+    c = get_comments(nil, db.last_insert_row_id).first
+
+    {commentHtml: erb(:comment, {layout: false, locals: {comment: c}})}.to_json
   else
-    redirect to("#{back}#m#{params[:qwel_id]}")
+    if back.include? 'random'
+      redirect to("/random?i=#{params[:qwel_id]}#m#{params[:qwel_id]}")
+    else
+      redirect to("#{back}#m#{params[:qwel_id]}")
+    end
   end
 end
 
 post '/qwels/:qwel_id/likes' do
+  unless params[:fren_id] &&
+         params[:qwel_id] &&
+         current_fren &&
+         current_fren.id == params[:fren_id].to_i
+    halt 400
+  end
+  
   db.execute 'insert into likes (fren_id, qwel_id) values (?, ?)', [params[:fren_id], params[:qwel_id]]
 
-  if back.include? 'random'
-    redirect to("/random?i=#{params[:qwel_id]}#q#{params[:qwel_id]}")
+  if xhr?
+    q = get_qwel params[:qwel_id]
+    q.likes = db.execute('select id, look, qwel_id, fren_id from likes where qwel_id = ?', q.id).map { |l| Like.new l }
+      
+    {likeHtml: erb(:like_info, {layout: false, locals: {qwel: q}})}.to_json
   else
-    redirect to("#{back}#q#{params[:qwel_id]}")
+    if back.include? 'random'
+      redirect to("/random?i=#{params[:qwel_id]}#q#{params[:qwel_id]}")
+    else
+      redirect to("#{back}#q#{params[:qwel_id]}")
+    end
   end
 end
 
 post '/qwels/:qwel_id/delete_likes' do
+  unless params[:fren_id] &&
+         params[:qwel_id] &&
+         current_fren &&
+         current_fren.id == params[:fren_id].to_i
+    halt 400
+  end
+
   db.execute 'delete from likes where fren_id = ? and qwel_id = ?', [params[:fren_id], params[:qwel_id]]
 
-  if back.include? 'random'
-    redirect to("/random?i=#{params[:qwel_id]}#q#{params[:qwel_id]}")
+  if xhr?
+    q = get_qwel params[:qwel_id]
+    q.likes = db.execute('select id, look, qwel_id, fren_id from likes where qwel_id = ?', q.id).map { |l| Like.new l }
+      
+    {likeHtml: erb(:like_info, {layout: false, locals: {qwel: q}})}.to_json
   else
-    redirect to("#{back}#q#{params[:qwel_id]}")
+    if back.include? 'random'
+      redirect to("/random?i=#{params[:qwel_id]}#q#{params[:qwel_id]}")
+    else
+      redirect to("#{back}#q#{params[:qwel_id]}")
+    end
   end
 end
 
 get '/looks/new' do
+  erb :look
 end
 
-post '/looks' do
+get '/words' do
+  Bazaar.object
 end
 
 __END__
@@ -471,20 +583,21 @@ __END__
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <script src="/audio.js"></script>
     <script src="/unmute.min.js"></script>
+    <title>quick loops</title>
   </head>
   <body>
     <div id="actions">
       <div class="innerActions">
         <div style="flex: 0;" class="col left">
-          <a href="/"><h1>ql</h1></a>
+          <a style="font-size: 1em;" href="/">QL</a>
         </div>
         <div style="flex: 1;" class="col right">
-          <% if fren %>
-            <a class="spaceRight" href="/qwels/new">new</a>
+          <% if current_fren %>
+            <a class="spaceRight" style="font-size: 1.0em;" href="/qwels/new">new</a>
           <% end %>
           <a class="spaceRight" href="/random">random</a>
-          <% if fren %>
-            <a href="/logout">log out</a>
+          <% if current_fren %>
+            <a class="spaceRight" href="/frens/<%= current_fren.id %>">me</a>
           <% else %>
             <a href="/frens/new">log in</a>
           <% end %>
@@ -499,19 +612,186 @@ __END__
   </body>
 </html>
 
-@@ fren_qwels
-<a href='/frens/<%= @fren.id %>/qwels/new'>new qwel</a>
-<ol>
-  <% @qwels.each do |qwel| %>
-    <li>
-      <a href="/qwels/<%= qwel.id %>">
-        <%= qwel.name %>
-      </a>
-    </li>
-  <% end %>
-</ol>
+@@ look
+<% form_action = "/looks" unless form_action %>
+<% form_method = "post" unless form_method %>
+<% editable = false unless editable %>
+<% look = "" unless look %>
+<% if editable %>
+  <div class="lookTools">
+    <% if look == '' || look.nil? %>
+      <p>Create an icon for your profile by painting in the 16x16 grid below. Or, <a href="/">skip this.</a> You can do it later from your profile page.</p>
+    <% end %>
+    <select onchange="showColor(this)" id="palette">
+      <% %w(red orange yellow green blue indigo violet gray black white).each do |c| %>
+        <option value="<%= c %>"><%= c %></option>
+      <% end %>
+    </select>
+    <div id="colorCell">
+      <div class="lookCellHeight"></div>
+    </div>
+    <span>
+      <label for="fill">fill</label>
+      <input type="checkbox" id="fill" />
+    </span>
+  </div>
+<% end %>
+<div class="look noselect">
+  <% (16 * 16).times do |i| %><div class="noselect lookCell <%= editable && (i.to_f / 16).floor.even? ? ((i % 2).even? ? 'gray4' : 'gray5' ) : editable && ((i % 2).even? ? 'gray5' : 'gray4') %>"><div class="lookCellHeight noselect"></div></div><% end %>
+</div>
+<% if editable %>
+  <form class="lookForm" action="<%= form_action %>" method="<%= form_method %>">
+    <input type="hidden" name="look" />
+    <input type="submit" value="save" />
+  </form>
+<% end %>
+<script type="text/javascript">
+  let editable = <%= editable %>
+  let colors = ['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet', 'white', 'black', 'gray']
+  let color = 'red'
+  let painting = false
+  let mouseDown = false
+  let rep = "<%= look %>"
+
+  const encode = () => {
+    rep = ""
+
+    forEach(document.querySelectorAll('.lookCell'), (i, cell) => {
+      let classNames = [...cell.classList.entries()].map(e => e[1])
+      let foundColor = classNames.find(c => colors.includes(c))
+
+      if (!!foundColor) {
+        rep = rep.concat(
+          i.toString(16).toUpperCase().padStart(2, '0'),
+          colors.indexOf(foundColor).toString(16).toUpperCase().padStart(2, '0')
+        )
+      }
+    })
+
+    // history.replaceState(null, null, `?l=${rep}`)
+    document.querySelector("form.lookForm input[name='look']").value = rep
+  }
+
+  const init = () => {
+    if (rep === null || rep === undefined || rep.length === 0) {
+      const params = (new URL(document.location)).searchParams
+      const repParam = params.get('l')
+
+      if (repParam != null && repParam != undefined) {
+        rep = repParam
+        parseRep()
+      }
+    } else {
+      parseRep()
+    }
+
+    if (editable) hookup()
+  }
+
+  const parseRep = () => {
+    let cells = [...document.querySelectorAll('.lookCell')]
+
+    rep.match(/.{1,4}/g) // get groups of 4
+       .forEach(cellRep => {
+         let positionIndex = parseInt(cellRep.slice(0, 2), 16)
+         let colorIndex = parseInt(cellRep.slice(2, 4), 16)
+
+         cells[positionIndex].classList.remove(...colors)
+         cells[positionIndex].classList.add(colors[colorIndex])
+       })
+  }
+
+  const showColor = (e) => {
+    document.querySelector('#colorCell').classList.remove(...colors)
+    document.querySelector('#colorCell').classList.add(e.value)
+    color = e.value
+  }
+
+  const startDrag = (e) => {
+    e.preventDefault()
+
+    mouseDown = true
+
+    if (e.target.classList.contains(color)) {
+      e.target.classList.remove(...colors)
+      painting = false
+    } else {
+      painting = true
+      e.target.classList.remove(...colors)
+      e.target.classList.add(color)
+    }
+  }
+
+  const maybePaint = (e) => {
+    e.preventDefault()
+
+    if (mouseDown) {
+      if (painting) {
+        e.target.classList.remove(...colors)
+        e.target.classList.add(color)
+      } else {
+        e.target.classList.remove(...colors)
+      }
+    }
+  }
+
+  const hookup = () => {
+    forEach(document.querySelectorAll('.lookCell'), (i, cell) => {
+      cell.onmousedown = startDrag
+      cell.onmousemove = maybePaint
+
+      cell.ontouchstart = (e) => {
+        e.preventDefault()
+
+        mouseDown = true
+
+        if (e.target.classList.contains(color)) {
+          e.target.classList.remove(...colors)
+          painting = false
+        } else {
+          painting = true
+          e.target.classList.remove(...colors)
+          e.target.classList.add(color)
+        }
+      }
+
+      cell.ontouchmove = (e) => {
+        e.preventDefault()
+
+        let touch = e.touches[0]
+        let elem = document.elementFromPoint(touch.clientX, touch.clientY)
+
+        if (mouseDown && elem.classList.contains('lookCell')) {
+          if (painting) {
+            elem.classList.remove(...colors)
+            elem.classList.add(color)
+          } else {
+            elem.classList.remove(...colors)
+          }
+        }
+      }
+    })
+
+    document.onmouseup = (e) => {
+      mouseDown = false
+      encode()
+    }
+
+    document.ontouchend = (e) => {
+      mouseDown = false
+      encode()
+    }
+
+    showColor({ value: color })
+  }
+
+  init()
+</script>
 
 @@ qwels
+<% if title %>
+  <div class="frenName"><%= title %></div>
+<% end %>
 <div class="sortHolder">
   <label>sort by</label>
   <select id="sortSelect" onchange="setSort(this)">
@@ -531,8 +811,7 @@ __END__
   <% end %>
   <% if page && page_count %>
     <span>page <%= page %> of <%= page_count %></span>
-  <% end %>
-  <% if page && page_count && page < page_count %>
+  <% end %> <% if page && page_count && page < page_count %>
     <a href="#" onclick="replaceOrAddSearchParam('page', <%= page + 1 %>); return false;">next</a>
   <% end %>
   <% if page && page < page_count %>
@@ -544,11 +823,12 @@ __END__
     <div class="qwel">nothing to show!</div>
   <% end %>
   <% @qwels.each do |qwel| %>
-    <%= erb :mini, locals: { qwel: qwel } %>
+    <%= erb :mini, locals: {qwel: qwel} %>
   <% end %>
 </div>
+<%= erb :minilookhelp %>
 <%= erb :minihelp %>
-<div class="paging">
+<div class="paging bottom">
   <% if page && page > 1 %>
     <a href="#" onclick="replaceOrAddSearchParam('page', 1); return false;">first</a>
   <% end %>
@@ -596,85 +876,173 @@ __END__
       newSearchStr = newSearchStr.concat(`${maybeAmp}${key}=${value}`)
     }
 
+    history.replaceState(null, null, ' ');
     window.location.search = newSearchStr
   }
 </script>
 
 @@ fren
-<h2><%= @visit_fren.name %></h2>
+<div class="frenName"><%= @visit_fren.name %></div>
+<% if @visit_fren.look || (current_fren && @visit_fren.id == current_fren.id) %>
+  <div class="lookView">
+    <%= erb :look, locals: {
+        look: @visit_fren.look,
+        editable: current_fren && current_fren.id == @visit_fren.id,
+        form_action: "/frens/#{@visit_fren.id}/look",
+        form_method: "post"
+      }
+    %>
+  </div>
+<% end %>
 <ul>
   <li><a href="/frens/<%= @visit_fren.id %>/qwels"><%= @visit_fren.name %>'s qwels</a></li>
+  <li><a href="/frens/<%= @visit_fren.id %>/likes">qwels <%= @visit_fren.name %> likes</a></li>
+  <% if current_fren && current_fren.id == @visit_fren.id %>
+    <li><a href="/logout">log out</a></li>
+  <% end %>
 </ul>
 
 @@ random
 <div>
-  <%= erb :mini, locals: { qwel: @qwel } %>
+  <%= erb :mini, locals: {qwel: @qwel} %>
 </div>
+<%= erb :minilookhelp %>
 <%= erb :minihelp %>
 
 @@ new_fren
+<% if params[:e] %>
+  <span class="error"><%= params[:e] %></span>
+<% end %>
 <form autocomplete="off" action="/frens" method="post" autocomplete="off">
-  <input class="fullWidth" type="text" name="name" placeholder="name" /> 
+  <input class="fullWidth" type="text" name="name" placeholder="name" value="<%= params[:name] %>" /> 
   <br />
   <input class="fullWidth" type="password" name="password" placeholder="password" /> 
   <br />
   <input type="submit" value="submit" />
 </form>
 
+@@ minilook
+<% width = '1em' unless width %>
+<a class="noStyle" href="/frens/<%= fren_id %>/look">
+  <div style="display: inline-block;" class="minilookContainer">
+    <input type="hidden" value="<%= look %>" />
+    <div class="minilook" style="width: <%= width %>">
+      <% (16 * 16).times do |i| %><div class="lookCell"><div class="lookCellHeight"></div></div><% end %>
+    </div>
+  </div>
+</a>
+
+@@ minilookhelp
+<script type="text/javascript">
+  let colors = ['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet', 'white', 'black', 'gray']
+
+  const layoutMinilooks = (container) => {
+    if (container) {
+      let rep = container.querySelector(':scope input[type="hidden"]').value
+      let cells = [...container.querySelectorAll(':scope .minilook .lookCell')]
+
+      rep.match(/.{1,4}/g) // get groups of 4
+         .forEach(cellRep => {
+           let positionIndex = parseInt(cellRep.slice(0, 2), 16)
+           let colorIndex = parseInt(cellRep.slice(2, 4), 16)
+
+           cells[positionIndex].classList.remove(...colors)
+           cells[positionIndex].classList.add(colors[colorIndex])
+         })
+    } else {
+      forEach(document.querySelectorAll('.minilookContainer'), (i, container) => {
+        let rep = container.querySelector(':scope input[type="hidden"]').value
+        let cells = [...container.querySelectorAll(':scope .minilook .lookCell')]
+
+        rep.match(/.{1,4}/g) // get groups of 4
+           .forEach(cellRep => {
+             let positionIndex = parseInt(cellRep.slice(0, 2), 16)
+             let colorIndex = parseInt(cellRep.slice(2, 4), 16)
+
+             cells[positionIndex].classList.remove(...colors)
+             cells[positionIndex].classList.add(colors[colorIndex])
+           })
+      })
+    }
+  }
+
+  layoutMinilooks()
+</script>
+
+@@ like_info
+<%= "#{qwel.likes.count} #{qwel.likes.count == 1 ? 'like' : 'likes'}" %>
+<% if current_fren %>
+  <form class="likeForm" id="likeForm<%= qwel.id %>" autocomplete="off" style="display: inline;"  method="post" action="/qwels/<%= qwel.id %>/<%= current_fren && qwel.liked_by?(current_fren) ? "delete_likes" : "likes" %><%= "?#{request.query_string}" unless request.query_string.empty? %>">
+    <input name="fren_id" type="hidden" value=<%= current_fren.id if current_fren %> />
+    <input type="submit" value=<%= current_fren && qwel.liked_by?(current_fren) ? "unlike" : "like" %> />
+  </form>
+<% end %>
+
 @@ mini
 <div class="qwel" id="qwel<%= qwel.id %>">
   <a class="qwelAnchor" id="q<%= qwel.id %>"></a>
-  <div>
-    <a href="/qwels/<%= qwel.id %>"><%= qwel.name %></a>
+  <input type="hidden" class="qwelRep" id="qwelRep<%= qwel.id %>" value="<%= qwel.rep %>" />
+  <div onclick="togglePlay(<%= qwel.id %>)" class="qwelGrid" id="qwelGrid<%= qwel.id %>">
+    <div class="playHint" id="playHint<%= qwel.id %>">tap to play</div>
   </div>
   <div class="secondLine">
+    <a href="/qwels/<%= qwel.id %>"><%= qwel.name %></a>
+    -
     <a href="/frens/<%= qwel.fren.id %>"><%= qwel.fren.name %></a>
-    <div style="background-color: red; display: inline-block; width: 1em;">
-      <div style="padding-top: 100%;"></div>
-    </div>
-    -
-    <%= chron Time.parse(qwel.updated_at) %>
-    -
-    <%= qwel.likes.count %>
-    <%= qwel.likes.count == 1 ? 'like' : 'likes' %>
-    <% if fren %>
-      <form autocomplete="off" style="display: inline;"  method="post" action="/qwels/<%= qwel.id %>/<%= fren && qwel.liked_by?(fren.id) ? "delete_likes" : "likes" %><%= "?#{request.query_string}" unless request.query_string.empty? %>">
-        <input name="fren_id" type="hidden" value=<%= fren.id if fren %> />
-        <input type="submit" value=<%= fren && qwel.liked_by?(fren.id) ? "unlike" : "like" %> />
-      </form>
+    <% if qwel.fren.look %>
+      <%= erb :minilook, locals: {width: '16px', look: qwel.fren.look, fren_id: qwel.fren.id} %>
     <% end %>
-    <% if fren && qwel.fren_id != fren.id && !qwel.forked_by?(fren)  %>
+    -
+    <%= chron qwel.updated_at %>
+    -
+    <span id="likes<%= qwel.id %>">
+      <%= erb :like_info, locals: {qwel: qwel} %>
+    </span>
+    <% if current_fren && qwel.fren_id != current_fren.id && !qwel.forked_by?(current_fren)  %>
       <form method="POST" action="/qwels/<%= qwel.id %>/fork">
         <input type="submit" value="fork" />
       </form>
     <% end %>
   </div>
-  <input type="hidden" class="qwelRep" id="qwelRep<%= qwel.id %>" value="<%= qwel.rep %>" />
-  <div onclick="togglePlay(<%= qwel.id %>)" class="qwelGrid" id="qwelGrid<%= qwel.id %>">
-    <div class="playHint" id="playHint<%= qwel.id %>">tap to play</div>
-  </div>
+  <% if qwel.forked_from %>
+    <div class="secondLine">
+      forked from <a href="/qwels/<%= qwel.forked_from.id %>"><%= qwel.forked_from.name %></a> by <a href="/frens/<%= qwel.forked_from.fren.id %>"><%= qwel.forked_from.fren.name %></a>
+      <% if qwel.forked_from.fren.look %>
+        <%= erb :minilook, locals: {width: '16px', look: qwel.forked_from.fren.look, fren_id: qwel.forked_from.fren.id} %>
+      <% end %>
+    </div>
+  <% end %>
   <div class="comms">
     <a class="qwelAnchor2" id="m<%= qwel.id %>"></a>
-    <% if fren %>
+    <% if current_fren %>
       <form class="commentForm" id="commentForm<%= qwel.id %>" autocomplete="off" method="post" action="/qwels/<%= qwel.id %>/comments<%= "?#{request.query_string}" unless request.query_string.empty? %>">
-        <input name="fren_id" type="hidden" value=<%= fren.id %> />
+        <input name="fren_id" type="hidden" value=<%= current_fren.id %> />
         <input name="body" class="commentInput" type="text" form="commentForm<%= qwel.id %>" id="commentInput<%= qwel.id %>" placeholder="add a comment" />
         <input style="margin-top: 20px;" class="commentButton" id="submitComment<%= qwel.id %>" type="submit" disabled value="post comment">
       </form>
     <% end %>
-    <ul id="qwel<%= qwel.id %>Comments">
+    <ul id="comments<%= qwel.id %>">
       <% qwel.comments.each do |c| %>
-        <li class="comment">
-          <div class="commentBody"><%= c.body %></div>
-          <div class="commentInfo"><i><%= c.fren.name %> - <%= chron Time.parse(c.created_at) %></i></div>
-        </li>
+        <%= erb :comment, locals: {comment: c} %>
       <% end %>
     </ul>
   </div>
 </div>
 
+@@ comment
+<li class="comment">
+  <div class="commentBody"><%= comment.body %></div>
+  <div class="commentInfo">
+    <i><%= comment.fren.name %>
+    <% if comment.fren.look %>
+      <%= erb :minilook, locals: {width: '16px', look: comment.fren.look, fren_id: comment.fren.id} %>
+    <% end %> - <%= chron comment.created_at %></i>
+  </div>
+</li>
+
+
 @@ minihelp
-<div class="t proto"><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div><div class="d"><div class="b"><div class="c"></div></div></div></div>
+<div class="t noselect proto"><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div><div class="d noselect"><div class="b noselect"><div class="c noselect"></div></div></div></div>
 <script type="text/javascript">
   let proto = document.querySelector('.proto')
   let buffers = {}
@@ -682,6 +1050,81 @@ __END__
   let reps = {}
   let loaded
   let loadedId
+
+  const postComment = (e) => {
+    e.preventDefault()
+
+    let form = e.target
+    let qwelId = parseInt(form.id.slice(11))
+    let input = document.querySelector(`#commentInput${qwelId}`)
+
+    if (input.value.length === 0)
+      return false
+
+    let url = form.action
+    let method = form.method
+    let frenId = form.querySelector(':scope input[name="fren_id"]').value
+    let body = form.querySelector(':scope input[name="body"]').value
+    let xhr = new XMLHttpRequest();
+    xhr.open(method, url, true);
+    xhr.setRequestHeader('Content-Type', 'application/json')
+    xhr.onreadystatechange = function() {
+      if (this.readyState != 4) return
+      if (this.status == 200) {
+        input.value = ''
+        let data = JSON.parse(this.responseText)
+        document.querySelector(`#comments${qwelId}`).insertAdjacentHTML('afterbegin', data.commentHtml)
+        let ml = document.querySelector(`#comments${qwelId}`).firstChild.querySelector('.minilookContainer')
+        layoutMinilooks(ml)
+      } else {
+        console.error("BAD: ", this.status, this.responseText)
+      }
+    }
+
+    let bag = {
+      fren_id: frenId,
+      body: body
+    }
+
+    xhr.send(JSON.stringify(bag));
+  }
+
+  const likeOrUnlike = (e) => {
+    e.preventDefault()
+
+    let form = e.target
+    let url = form.action
+    let method = form.method
+    let frenId = form.querySelector(':scope input[name="fren_id"]').value
+    let qwelId = parseInt(form.id.slice(8))
+    let xhr = new XMLHttpRequest();
+    xhr.open(method, url, true);
+    xhr.setRequestHeader('Content-Type', 'application/json')
+    xhr.onreadystatechange = function() {
+      if (this.readyState != 4) return
+      if (this.status == 200) {
+        let data = JSON.parse(this.responseText)
+        document.querySelector(`#likes${qwelId}`).innerHTML = data.likeHtml
+        document.querySelector(`#likeForm${qwelId}`).onsubmit = likeOrUnlike
+      } else {
+        console.error("BAD: ", this.status, this.responseText)
+      }
+    }
+
+    let bag = {
+      fren_id: frenId
+    }
+
+    xhr.send(JSON.stringify(bag));
+  }
+
+  forEach(document.querySelectorAll('.likeForm'), (index, form) => {
+    form.onsubmit = likeOrUnlike
+  })
+
+  forEach(document.querySelectorAll('.commentForm'), (index, form) => {
+    form.onsubmit = postComment
+  })
 
   forEach(document.querySelectorAll('.qwelRep'), (index, input) => {
     let rep = input.value
@@ -744,18 +1187,6 @@ __END__
     })
 
     columns[id] = gatherColumns(reps[id], id)
-  })
-
-  forEach(document.querySelectorAll('.commentForm'), (index, form) => {
-    form.onsubmit = (e) => {
-      let id = parseInt(e.target.id.slice(11))
-      let input = document.querySelector(`#commentInput${id}`)
-
-      if (input.value.length === 0) {
-        e.preventDefault()
-        return false
-      }
-    }
   })
 
   forEach(document.querySelectorAll('.commentInput'), (index, input) => {

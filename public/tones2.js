@@ -15,6 +15,7 @@ const noteNamesAndFreqs = {
   B: 494
 }
 
+let startup = true
 let name = ""
 let bpms
 let notes
@@ -39,6 +40,7 @@ let sampleNotes
 let sequenceSelects
 let phraseBuffers = []
 let playButton
+let sampleTones
 
 const audioCtx = () => {
   if (audioCtxRef) {
@@ -276,12 +278,14 @@ const generateNotes = (pIndex, index) => {
 }
 
 const deleteGrid = (e) => {
+  e.preventDefault()
+
   const indexStr = e.target.id.slice(6)
   const indicies = indexStr.split('-').map(n => parseInt(n))
   const pIndex = indicies[0]
   let index = indicies[1]
 
-  if (pData[pIndex] <= 1) {
+  if (pData[pIndex].length <= 1) {
     return
   }
 
@@ -294,12 +298,13 @@ const deleteGrid = (e) => {
   volumes[pIndex].splice(index, 1)
   pans[pIndex].splice(index, 1)
   notes[pIndex].splice(index, 1)
-  sampleTones[pIndex].splice(index, 1)
+
+  if (sampleTones) sampleTones[pIndex].splice(index, 1)
 
   while (index < pData[pIndex].length) {
     let cont = document.querySelector(`#container${pIndex}-${index + 1}`)
     let tab = cont.querySelector(`#grid${pIndex}-${index + 1}`)
-    let del = cont.querySelector('button.delete')
+    let del = cont.querySelector('a.delete')
     let lis = cont.querySelector('select.tone')
     let oct = cont.querySelector('select.octave')
     let ntl = cont.querySelector('select.notelength')
@@ -333,8 +338,9 @@ const createPhrase = () => {
   phraseContainer.className = 'phrase'
   phraseContainer.id = `phrase${pIndex}`
 
-  let phraseNo = document.createElement('h3')
+  let phraseNo = document.createElement('div')
   phraseNo.innerText = pIndex + 1
+  phraseNo.style.display = 'inline-block'
   phraseNo.style.marginBottom = '0.5em'
 
   let bpmContainer = document.createElement('div')
@@ -370,23 +376,28 @@ const createPhrase = () => {
     keySelect.add(keyOpt)
   })
 
-  let dupButton = document.createElement('button')
-  dupButton.innerText = 'copy phrase'
+  let dupButton = document.createElement('a')
+  dupButton.className = 'noStyle dupPhrase'
+  dupButton.href = '#'
+  dupButton.innerText = '⧉'
   dupButton.id = `dupphrase${pIndex}`
   dupButton.onclick = duplicatePhrase
 
-  let delButton = document.createElement('button')
-  delButton.innerText = 'delete phrase'
+  let delButton = document.createElement('a')
+  delButton.href = '#'
+  delButton.className = 'noStyle delPhrase'
+  delButton.innerText = 'x'
   delButton.id = `delphrase${pIndex}`
   delButton.onclick = deletePhrase
 
+  bpmContainer.appendChild(delButton)
   bpmContainer.appendChild(phraseNo)
+  bpmContainer.appendChild(document.createElement('br'))
   bpmContainer.appendChild(bpmLabel)
   bpmContainer.appendChild(bpm)
   bpmContainer.appendChild(keyLabel)
   bpmContainer.appendChild(keySelect)
   bpmContainer.appendChild(dupButton)
-  bpmContainer.appendChild(delButton)
 
   phraseContainer.appendChild(bpmContainer)
 
@@ -420,7 +431,7 @@ const createGrid = (e) => {
 
   let phraseContainer = document.querySelector(`#phrase${pIndex}`)
   let gridContainer = proto.cloneNode(true)
-  let deleteButton = gridContainer.querySelector('button.delete')
+  let deleteButton = gridContainer.querySelector('a.delete')
   let lis = gridContainer.querySelector('select.tone')
   let oct = gridContainer.querySelector('select.octave')
   let ntl = gridContainer.querySelector('select.notelength')
@@ -430,7 +441,7 @@ const createGrid = (e) => {
 
   gridContainer.classList.remove('proto')
   gridContainer.id = `container${pIndex}-${gridIndex}`
-  gridContainer.style.width = `16em`
+  gridContainer.style.width = `20em`
   gridContainer.style.margin = '0 1em 0 0'
 
   let a = gridContainer.querySelector('.t')
@@ -510,21 +521,24 @@ const setEncodes = (newEncoding) => {
 }
 
 const deletePhrase = (e) => {
+  e.preventDefault()
+
   if (pData.length === 1)
     return
 
   let pIndex = parseInt(e.target.id.slice(9))
   let parts = encodeAll().split('|')
 
-  parts.splice(pIndex + 1, 1) // account for "sequence" data at position 0 of url parts
-  parts[0] = parts[0].replaceAll(pIndex + 1, '') // remove from sequence too
-  parts[0] = parts[0].split('')
-                     .map(n => parseInt(n))
+  parts.splice(pIndex + 2, 1) // account for "sequence" and "name" data at position 0 of url parts
+  parts[1] = parts[1].replaceAll((pIndex + 1).toString(16).toUpperCase().padStart(2, '0'), '') // remove from sequence too
+  parts[1] = parts[1].match(/.{1,2}/g)
+                     .map(n => parseInt(n, 16))
                      .filter(n => n !== pIndex + 1)
                      .map(n => n > pIndex + 1 ? n - 1 : n)
+                     .map(n => n.toString(16).toUpperCase().padStart(2, '0'))
                      .join('')
-  if (!parts[0])
-    parts[0] = '1'
+  if (!parts[1])
+    parts[1] = '01'
 
   setEncodes(parts.join('|'))
   init()
@@ -542,8 +556,9 @@ const createGrids = () => {
     phraseContainer.id = `phrase${pIndex}`
     phraseContainer.style.position = 'relative'
 
-    let phraseNo = document.createElement('h3')
+    let phraseNo = document.createElement('div')
     phraseNo.style.marginBottom = '0.5em'
+    phraseNo.style.display = 'inline-block'
     phraseNo.innerText = pIndex + 1
 
     let bpmContainer = document.createElement('div')
@@ -579,31 +594,34 @@ const createGrids = () => {
       keySelect.add(keyOpt)
     })
 
-    let dupButton = document.createElement('button')
-    dupButton.innerText = 'copy phrase'
+    let dupButton = document.createElement('a')
+    dupButton.className = 'noStyle dupPhrase'
+    dupButton.href = '#'
+    dupButton.innerText = '⧉'
     dupButton.id = `dupphrase${pIndex}`
     dupButton.onclick = duplicatePhrase
 
-    let delButton = document.createElement('button')
-    delButton.innerText = 'delete phrase'
+    let delButton = document.createElement('a')
+    delButton.href = '#'
+    delButton.className = 'noStyle delPhrase'
+    delButton.innerText = 'x'
     delButton.id = `delphrase${pIndex}`
     delButton.onclick = deletePhrase
 
-    bpmContainer.style.whiteSpace = 'normal'
-
+    bpmContainer.appendChild(delButton)
     bpmContainer.appendChild(phraseNo)
+    bpmContainer.appendChild(document.createElement('br'))
     bpmContainer.appendChild(bpmLabel)
     bpmContainer.appendChild(bpm)
     bpmContainer.appendChild(keyLabel)
     bpmContainer.appendChild(keySelect)
     bpmContainer.appendChild(dupButton)
-    bpmContainer.appendChild(delButton)
 
     phraseContainer.appendChild(bpmContainer)
 
     phrase.forEach((gridData, gridIndex) => {
       let gridContainer = proto.cloneNode(true)
-      gridContainer.style.width = `16em`
+      gridContainer.style.width = `20em`
       gridContainer.style.margin = '0 1em 0 0'
 
       let a = gridContainer.querySelector('.t')
@@ -633,7 +651,7 @@ const createGrids = () => {
       let gridActions = gridContainer.querySelector('.gridActions')
       insertAfter(a, gridActions)
 
-      let deleteButton = gridContainer.querySelector('button.delete')
+      let deleteButton = gridContainer.querySelector('a.delete')
       let lis = gridContainer.querySelector('select.tone')
       let oct = gridContainer.querySelector('select.octave')
       let ntl = gridContainer.querySelector('select.notelength')
@@ -734,7 +752,12 @@ const changeSequence = (e) => {
   }
 
   remakeSequenceSelects()
-  generateSequence(true)
+
+  if (phraseBuffers.length === 0) {
+    generateSound(null, true)
+  } else {
+    generateSequence(true)
+  }
   setEncodes()
 }
 
@@ -874,8 +897,8 @@ const init = () => {
   setPans()
   remakeSequenceSelects()
   setNoteLengths()
-  generateSound(null, true, false)
   generateSampleTones()
+  generateSound(null, true, false)
   gatherColumns2()
 
   document.onkeydown = (e) => {
@@ -927,10 +950,17 @@ const assignCellClicks = () => {
         let dataIndex = j % 16
 
         cell.onclick = (e) => {
+          e.preventDefault()
+
           if (pData[pIndex][gridIndex][dataIndex] === rowIndex) {
             pData[pIndex][gridIndex][dataIndex] = null
           } else {
             pData[pIndex][gridIndex][dataIndex] = rowIndex
+
+            if (!sampleTones) {
+              generateSound()
+              generateSampleTones()
+            }
 
             let bufferSource = audioCtx().createBufferSource()
             bufferSource.connect(audioCtx().destination)
@@ -1100,6 +1130,13 @@ const waveFunction = (i) => {
 }
 
 const generateSound = (pIndex, sequenceChanged=false, enableSave=true) => {
+  if (startup) {
+    startup = false
+    return
+  }
+
+  if (pIndex && phraseBuffers.length === 0) pIndex = null
+
   generatePhraseBuffers(pIndex)
   generateSequence(sequenceChanged, enableSave)
   prepareDownload()  
@@ -1129,6 +1166,9 @@ const gatherColumns2 = () => {
 }
 
 const generateSampleTones = () => {
+  if (startup) return
+  if (bufferSizes.length < pData.length) generateSound()
+
   sampleTones = []
 
   for (let i = 0; i < pData.length; i++) {
@@ -1342,7 +1382,7 @@ const generateSequence = (sequenceChanged=false, enableSave=true) => {
   millisPer16ths = []
   totalMillis = 0
 
-  if (sequenceChanged) {
+  if (sequenceChanged || !buffer) {
     let len = sequence.reduce((acc, seqNo) => acc = acc + phraseBuffers[seqNo - 1].length, 0)
     buffer = audioCtx().createBuffer(2, len, sampleRate)
   }

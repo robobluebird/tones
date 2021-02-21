@@ -1,32 +1,83 @@
 html {
-  font-family: sans-serif;
-  font-size: 2em;
+  font-family: monospace;
 }
 
 select, button, input, label, form {
-  font-size: 1em;
+  font-family: monospace;
 }
 
 h1 {
   margin: 0;
 }
 
+.frenName {
+  margin-bottom: 1em;
+}
+
+.lookView {
+  width: 100%;
+  margin-bottom: 1em;
+}
+
+.msg {
+}
+
+.lookForm input {
+  width: 100%;
+}
+
+.lookTools {
+  margin-bottom: 0.5em;
+}
+
+.lookTools p {
+}
+
+.look {
+  width: 100%;
+  cursor: pointer;
+}
+
+.noselect {
+  -webkit-touch-callout: none; /* iOS Safari */
+    -webkit-user-select: none; /* Safari */
+     -khtml-user-select: none; /* Konqueror HTML */
+       -moz-user-select: none; /* Old versions of Firefox */
+        -ms-user-select: none; /* Internet Explorer/Edge */
+            user-select: none; /* Non-prefixed version, currently
+                                  supported by Chrome, Edge, Opera and Firefox */
+}
+
+#colorCell {
+  display: inline-block;
+  width: 1em;
+}
+
+.lookCell {
+  width: 6.25%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  display: inline-block;
+}
+
+.lookCellHeight {
+  padding-top: 100%;
+  pointer-events: none;
+}
+
 .sortHolder, .paging {
-  font-size: 0.7em;
 }
 
 .secondLine {
-  font-size: 0.6em;
-  margin-top: 0.5em;
+  margin: 0.5em 0 0 0;
 }
 
 .comms, .playHint {
-  font-size: 0.5em;
 }
 
 #saveNotice {
   visibility: hidden;
-  margin-left: 20px;
 }
 
 form {
@@ -46,18 +97,27 @@ a.fetch {
 
 a.noStyle:link {
   text-decoration: none;
+  color: black;
 }
 
 a.noStyle:visited {
   text-decoration: none;
+  color: black;
 }
 
 a.noStyle:hover {
   text-decoration: none;
+  color: black;
 }
 
 a.noStyle:active {
   text-decoration: none;
+  color: black;
+}
+
+.dupPhrase {
+  margin-left: 0.5em;
+  vertical-align: middle;
 }
 
 input, select, button, label {
@@ -95,7 +155,7 @@ button {
 }
 
 .spaceRight {
-  margin-right: 0.5em;
+  margin-right: 0.25em;
 }
 
 .qwelAnchor {
@@ -134,11 +194,11 @@ input.error {
 }
 
 .paging {
-  margin-top: 1em;
+  margin-top: 0.5em;
 }
 
 .paging.bottom {
-  margin-top: 50px;
+  margin-top: 1em;
 }
 
 .miniplay {
@@ -162,7 +222,7 @@ ul {
 .qwel {
   border: 1px solid black;
   border-radius: 10px;
-  padding: 20px;
+  padding: 0.5em;
   position: relative;
   margin-top: 1em;
 }
@@ -179,7 +239,7 @@ ul {
 
 li.comment {
   text-align: left;
-  padding: 20px;
+  padding: 1em;
 }
 
 li.comment:not(:first-child) {
@@ -194,7 +254,6 @@ li.comment:not(:last-child) {
   position: relative;
   cursor: pointer;
   width: 100%;
-  margin-top: 0.5em;
   display: inline-block;
 }
 
@@ -203,17 +262,20 @@ li.comment:not(:last-child) {
 }
 
 #main {
-  padding: 20px;
+  padding: 0.5em;
 }
 
-@media only screen and (min-width: 960px) {
-/* styles for browsers larger than 960px; */
+@media only screen and (min-width: 800px) {
+/* styles for browsers larger than 800px; */
   #main {
+  }
+
+  .lookView {
+    width: 50%;
   }
 }
 
-@media only screen and (min-width: 1400px) {
-/* styles for browsers larger than 960px; */
+@media only screen and (min-width: 960px) {
   #main {
     width: 50%;
   }
@@ -221,7 +283,6 @@ li.comment:not(:last-child) {
 
 #mainq {
   padding: 0 0.5em 0 0.5em;
-  font-size:  0.8em;
 }
 
 #mainq h2 {
@@ -229,7 +290,7 @@ li.comment:not(:last-child) {
 }
 
 #sequence select {
-  margin: 0.25em
+  margin: 0.25em;
 }
 
 #mainq h3 {
@@ -239,26 +300,25 @@ li.comment:not(:last-child) {
 ol {
   padding: 0;
   margin: 0;
-  padding-left: 20px;
+  padding-left: 1em;
 }
 
 .title {
-  margin: 1em 0 1em 0;
+  margin: 0.5em 0 0.5em 0;
 }
 
 .bpmAndSuch {
   position: sticky;
   top: 0;
   left: 0;
-  margin-bottom: 1em;
 }
 
-.bpmAndSuch label, input, button {
+.bpmAndSuch label, .bpmAndSuch input, .bpmAndSuch button {
   margin: 0 0.2em;
 }
 
 #actions {
-  z-index: 1;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   position: sticky;
@@ -279,7 +339,7 @@ ol {
 }
 
 .nameLine input {
-  width: 50%;
+  width: 60%;
 }
 
 .nameLine span {
@@ -299,7 +359,6 @@ ol {
 
 #bottomActions button {
   width: 100%;
-  font-size: 1em;
   margin: 0;
 }
 
@@ -311,7 +370,11 @@ ol {
   margin-bottom: 0.5em;
 }
 
-.delete {
+.gridContainer label, .gridContainer select {
+  margin: auto 0 auto 0;
+}
+
+.delete, .delPhrase {
   float: right;
 }
 
@@ -324,7 +387,6 @@ ol {
 }
 
 .innerActions a {
-  font-size: 0.8em;
 }
 
 #actions button {
@@ -358,7 +420,7 @@ h2.no-bottom-margin {
 
 h3 {
   display: inline;
-  margin-right: 20px;
+  margin-right: 1em;
 }
 
 .centered {
@@ -374,7 +436,6 @@ h3 {
 }
 
 .phrase {
-  font-size: 0.7em;
   overflow-x: scroll;
   overflow-y: hidden;
   white-space: nowrap;
@@ -389,7 +450,7 @@ h3 {
 }
 
 .error {
-  border-color: red;
+  color: red;
 }
 
 body {
@@ -403,14 +464,13 @@ body {
 }
 
 .add {
-  font-size: 2em;
   margin: 1em 0.5em 0 0;
-  height: 8em;
+  height: 17em;
   width: 2em;
   display: inline-block;
   text-align: center;
   vertical-align: top;
-  line-height: 8em;
+  line-height: 17em;
   cursor: pointer;
   background-color: #EEEEEE;
 }
@@ -438,7 +498,7 @@ body {
 }
 
 .t {
-  font-size: 0.8em;
+  cursor: pointer;
   color: #777777;
   width: 100%;
   display: inline-block;
@@ -470,7 +530,7 @@ body {
   text-align: center; 
   height: 80px;
   line-height: 80px;
-  margin: 20px auto;
+  margin: 1em auto;
   text-align: center;
   vertical-align: top;
   cursor: pointer;
@@ -489,28 +549,56 @@ body {
   background-color: #EEEEEE;
 }
 
-.gray {
-  background-color: #777777;
+.gray4 {
+  background-color: #DDDEEE;
 }
 
-.orange {
-  background-color: orange;
+.gray5 {
+  background-color: #EEEFFF;
+}
+
+.gray {
+  background-color: #777777;
 }
 
 .red {
   background-color: red;
 }
 
-.purple {
-  background-color: purple;
+.orange {
+  background-color: orange;
+}
+
+.yellow {
+  background-color: yellow;
+}
+
+.green {
+  background-color: green;
 }
 
 .blue {
   background-color: blue;
 }
 
-.green {
-  background-color: green;
+.indigo {
+  background-color: indigo;
+}
+
+.violet {
+  background-color: violet;
+}
+
+.purple {
+  background-color: purple;
+}
+
+.black {
+  background-color: black;
+}
+
+.white {
+  background-color: white;
 }
 
 .playHint {
