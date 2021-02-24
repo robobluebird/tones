@@ -11,6 +11,18 @@ enable :sessions
 class String; def humanize; self.capitalize; end; end
 
 helpers do
+  def error_for code
+    code.nil? ? '' : [
+      'Provide both a name and password.',
+      'Bad passsword.',
+      'No such fren.',
+      'Provide a name, password, and password confirmation.',
+      'Trying to trick me?',
+      "Password and confirmation don't match.",
+      'That name is taken.'
+    ][code.to_i]
+  end
+
   def chron time
     t = ((Time.now.utc - time).to_i / 86400).floor
 
@@ -40,6 +52,17 @@ helpers do
           password_hash text,
           look text,
           last_login date
+        );
+
+        create table if not exists poasts (
+          id integer primary key,
+          body text,
+          look text,
+          fren_id integer,
+          poast_id integer,
+          created_at date,
+          foreign key(fren_id) references frens(id),
+          foreign key(poast_id) references poasts(id)
         );
 
         create table if not exists forks (
@@ -122,7 +145,29 @@ helpers do
   end
 
   def get_qwel id
-    Qwel.new db.execute("select id, name, rep, length, look, fren_id, created_at, updated_at, fork_id from qwels where id = ? limit 1", id).first
+    q = db.execute("select id, name, rep, length, look, fren_id, created_at, updated_at, fork_id from qwels where id = ? limit 1", id).first
+
+    Qwel.new(q) if q
+  end
+
+  def get_fren id
+    f = db.execute('select id, name, look, last_login, password_hash from frens where id = ? limit 1', id).first
+
+    Fren.new(f) if f
+  end
+
+  def get_fren_by_name name
+    f = db.execute('select id, name, look, last_login, password_hash from frens where name = ? limit 1', name).first
+
+    Fren.new(f) if f
+  end
+
+  def get_poasts
+    db.execute('select * from poasts where poast_id is null order by created_at desc').map do |p|
+      Poast.new p
+      p.fren = get_fren(p.fren_id) if p.fren_id
+      p
+    end
   end
 end
 
@@ -157,6 +202,20 @@ class Comment
     @look = ary[2]
     @fren_id = ary[3]
     @qwel_id = ary[4]
+    @created_at = Time.parse(ary[5]) if ary[5]
+  end
+end
+
+class Poast
+  attr_reader :id, :body, :look, :fren_id, :poast_id, :created_at
+  attr_accessor :fren, :poast
+
+  def initialize ary = nil
+    @id = ary[0]
+    @body = ary[1]
+    @look = ary[2]
+    @fren_id = ary[3]
+    @poast_id = ary[4]
     @created_at = Time.parse(ary[5]) if ary[5]
   end
 end
@@ -374,6 +433,7 @@ get '/frens/:fren_id/look' do
   erb :look, locals: {
     look: look,
     editable: current_fren && current_fren.id == params[:fren_id].to_i,
+    editNow: look.nil?,
     form_action: "/frens/#{params[:fren_id]}/look",
     form_method: "post"
   }
@@ -387,44 +447,51 @@ post '/frens/:fren_id/look' do
   redirect to back
 end
 
-post '/frens' do
-  begin
-    if !params[:name] || !params[:password] || params[:name].length.zero? || params[:password].length.zero?
-      redirect to('/frens/new?e=Provide both a name and password.')
-    elsif params[:name].gsub(/\ +/, '').length.zero?
-      redirect to('/frens/new?e=Trying to trick me?')
-    end
+post '/login' do
+  if !params[:name] || !params[:password] || params[:name].length.zero? || params[:password].length.zero?
+    redirect to("/frens/new?name=#{params[:name]}&=e=0")
+  end
 
-    f = Fren.new db.execute('select id, name, look, last_login, password_hash from frens where name = ? limit 1', params[:name]).first
+  f = get_fren_by_name params[:name]
 
-    if f.name
-      if Password.new(f.password_hash) == params[:password]
-        db.execute 'update frens set last_login = ? where id = ?', [Time.now.utc.to_s, f.id]
-        session[:fren_id] = f.id
-        
-        if f.look.nil?
-          redirect to("/frens/#{f.id}/look")
-        else
-          redirect to('/')
-        end
+  if f && f.name
+    if Password.new(f.password_hash) == params[:password]
+      db.execute 'update frens set last_login = ? where id = ?', [Time.now.utc.to_s, f.id]
+      session[:fren_id] = f.id
+      
+      if f.look.nil?
+        redirect to("/frens/#{f.id}/look")
       else
-        redirect to("/frens/new?name=#{f.name}&e=1")
+        redirect to('/')
       end
     else
-      db.execute 'insert into frens (name, password_hash, last_login) values (?, ?, ?)',
-                 [params[:name], Password.create(params[:password]), Time.now.utc.to_s]
-      session[:fren_id] = db.last_insert_row_id
-      redirect to("/frens/#{db.last_insert_row_id}/look")
+      redirect to("/frens/new?name=#{f.name}&e=1")
     end
-  rescue SQLite3::ConstraintException => e
-    a = <<-ERR
-      <h1>Error, baby</h1>
-      <p><%= msg %></p>
-      <a href="/frens/new">back.</a>
-    ERR
-
-    erb a, locals: {msg: e.message}
+  else
+    redirect to("/frens/new?e=2")
   end
+end
+
+post '/frens' do
+  if !params[:name] || !params[:password] || !params[:password_confirmation] ||
+    params[:name].length.zero? || params[:password].length.zero? || params[:password_confirmation].length.zero?
+    redirect to("/frens/new?name=#{params[:name]}&p=SignUp&e=3")
+  elsif params[:name].gsub(/\ +/, '').length.zero?
+    redirect to('/frens/new?name=#{params[:name]}&p=SignUp&e=4')
+  elsif params[:password_confirmation] != params[:password]
+    redirect to("/frens/new?name=#{params[:name]}&p=SignUp&e=5")
+  else
+    f = get_fren_by_name params[:name]
+
+    if f
+      redirect to("/frens/new?name=#{params[:name]}&p=SignUp&e=6")
+    end
+  end
+
+  db.execute 'insert into frens (name, password_hash, last_login) values (?, ?, ?)',
+    [params[:name], Password.create(params[:password]), Time.now.utc.to_s]
+  session[:fren_id] = db.last_insert_row_id
+  redirect to("/frens/#{db.last_insert_row_id}/look")
 end
 
 get '/error' do
@@ -569,6 +636,26 @@ get '/looks/new' do
   erb :look
 end
 
+get '/poasts' do
+  @poasts = get_poasts
+  erb :poasts
+end
+
+get '/poasts/new' do
+end
+
+post '/poasts' do
+end
+
+get '/poasts/:poast_id' do
+end
+
+get '/poasts/:post_id/new' do
+end
+
+post '/poasts/:poast_id/poasts' do
+end
+
 get '/words' do
   Bazaar.object
 end
@@ -589,7 +676,7 @@ __END__
     <div id="actions">
       <div class="innerActions">
         <div style="flex: 0;" class="col left">
-          <a style="font-size: 1em;" href="/">QL</a>
+          <a style="font-size: 1em;" href="/">quickloops</a>
         </div>
         <div style="flex: 1;" class="col right">
           <% if current_fren %>
@@ -604,8 +691,6 @@ __END__
         </div>
       </div>
     </div>
-    <div class="actions">
-    </div>
     <div id="main">
       <%= yield %>
     </div>
@@ -617,8 +702,12 @@ __END__
 <% form_method = "post" unless form_method %>
 <% editable = false unless editable %>
 <% look = "" unless look %>
+<% editNow = false unless editNow %>
 <% if editable %>
-  <div class="lookTools">
+  <div style="text-align: right; padding-bottom: 0.5em;">
+    <a href="#" id="editNow" class="startEditing<%= " hidden" if editNow %>">edit</a>
+  </div>
+  <div id="lookTools" class="lookTools<%= " hidden" unless editNow %>">
     <% if look == '' || look.nil? %>
       <p>Create an icon for your profile by painting in the 16x16 grid below. Or, <a href="/">skip this.</a> You can do it later from your profile page.</p>
     <% end %>
@@ -637,16 +726,17 @@ __END__
   </div>
 <% end %>
 <div class="look noselect">
-  <% (16 * 16).times do |i| %><div class="noselect lookCell <%= editable && (i.to_f / 16).floor.even? ? ((i % 2).even? ? 'gray4' : 'gray5' ) : editable && ((i % 2).even? ? 'gray5' : 'gray4') %>"><div class="lookCellHeight noselect"></div></div><% end %>
+  <% (16 * 16).times do |i| %><div class="noselect lookCell <%= editable && editNow && (i.to_f / 16).floor.even? ? i.even? ? 'gray4' : 'gray5' : (i.even? ? 'gray5' : 'gray4') if editable && editNow %>"><div class="lookCellHeight noselect"></div></div><% end %>
 </div>
 <% if editable %>
-  <form class="lookForm" action="<%= form_action %>" method="<%= form_method %>">
+  <form id="lookForm" class="lookForm<%= " hidden" unless editNow %>" action="<%= form_action %>" method="<%= form_method %>">
     <input type="hidden" name="look" />
     <input type="submit" value="save" />
   </form>
 <% end %>
 <script type="text/javascript">
   let editable = <%= editable %>
+  let editNow = <%= editNow %>
   let colors = ['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet', 'white', 'black', 'gray']
   let color = 'red'
   let painting = false
@@ -685,7 +775,35 @@ __END__
       parseRep()
     }
 
-    if (editable) hookup()
+    if (editable) {
+      if (editNow) {
+        hookup()
+      } else {
+        document.querySelector('#editNow').onclick = (e) => {
+          e.preventDefault()
+          e.target.classList.add('hidden')
+          document.querySelector('#lookTools').classList.remove('hidden')
+          document.querySelector('#lookForm').classList.remove('hidden')
+          document.querySelector('.look').classList.add('pointy')
+          forEach(document.querySelectorAll('.lookCell'), (i, cell) => {
+            if (Math.floor(i / 16) % 2 === 0) {
+              if (i % 2 === 0) {
+                cell.classList.add('gray4')
+              } else {
+                cell.classList.add('gray5')
+              }
+            } else {
+              if (i % 2 === 0) {
+                cell.classList.add('gray5')
+              } else {
+                cell.classList.add('gray4')
+              }
+            }
+          })
+          hookup()
+        }
+      }
+    }
   }
 
   const parseRep = () => {
@@ -910,16 +1028,77 @@ __END__
 <%= erb :minihelp %>
 
 @@ new_fren
-<% if params[:e] %>
-  <span class="error"><%= params[:e] %></span>
-<% end %>
-<form autocomplete="off" action="/frens" method="post" autocomplete="off">
-  <input class="fullWidth" type="text" name="name" placeholder="name" value="<%= params[:name] %>" /> 
-  <br />
-  <input class="fullWidth" type="password" name="password" placeholder="password" /> 
-  <br />
-  <input type="submit" value="submit" />
-</form>
+<div class="qwel options">
+  <div class="options">
+    <div class="option active" id="optionSignIn">
+      <div class="text">
+        sign in
+      </div>
+    </div>
+    <div class="option" id="optionSignUp">
+      <div class="text">
+        sign up
+      </div>
+    </div>
+  </div>
+  <div class="content">
+    <span class="error"><%= error_for params[:e] %></span>
+    <div class="contentPane" id="contentSignIn">
+      <form autocomplete="off" action="/login" method="post" autocomplete="off">
+        <input class="fullWidth" type="text" name="name" placeholder="name" value="<%= params[:name] %>" /> 
+        <br />
+        <input class="fullWidth" type="password" name="password" placeholder="password" /> 
+        <br />
+        <input type="submit" value="submit" />
+      </form>
+    </div>
+    <div style="display: none;" class="contentPane" id="contentSignUp">
+      <form action="/frens" method="post" autocomplete="off">
+        <input class="fullWidth" type="text" name="name" placeholder="name" value="<%= params[:name] %>" /> 
+        <br />
+        <input class="fullWidth" type="password" name="password" placeholder="password" /> 
+        <br />
+        <input class="fullWidth" type="password" name="password_confirmation" placeholder="confirm password" /> 
+        <br />
+        <input type="submit" value="submit" />
+      </form>
+    </div>
+  </div>
+</div>
+<script type="text/javascript">
+  forEach(document.querySelectorAll('.option'), (i, o) => {
+    o.onclick = (e) => {
+      let name = e.currentTarget.id.slice(6)
+
+      forEach(document.querySelectorAll('.option'), (i, p) => {
+        p.classList.remove('active')
+      })
+
+      forEach(document.querySelectorAll('.contentPane'), (i, c) => {
+        c.style.display = "none"
+      })
+
+      document.querySelector(`#content${name}`).style.display = "block"
+      document.querySelector('.error').innerText = ''
+      e.currentTarget.classList.add('active')
+    }
+  })
+
+  const params = (new URL(document.location)).searchParams
+  const paneParam = params.get('p')
+  if (paneParam) {
+    forEach(document.querySelectorAll('.option'), (i, p) => {
+      p.classList.remove('active')
+    })
+
+    forEach(document.querySelectorAll('.contentPane'), (i, c) => {
+      c.style.display = "none"
+    })
+
+    document.querySelector(`#content${paneParam}`).style.display = "block"
+    document.querySelector(`#option${paneParam}`).classList.add('active')
+  }
+</script>
 
 @@ minilook
 <% width = '1em' unless width %>
@@ -987,6 +1166,8 @@ __END__
   </div>
   <div class="secondLine">
     <a href="/qwels/<%= qwel.id %>"><%= qwel.name %></a>
+    -
+    <%= "#{qwel.length / 60000}:" + "#{(qwel.length / 1000) % 60}".rjust(2, '0') %>
     -
     <a href="/frens/<%= qwel.fren.id %>"><%= qwel.fren.name %></a>
     <% if qwel.fren.look %>
@@ -1072,6 +1253,7 @@ __END__
       if (this.readyState != 4) return
       if (this.status == 200) {
         input.value = ''
+        input.blur()
         let data = JSON.parse(this.responseText)
         document.querySelector(`#comments${qwelId}`).insertAdjacentHTML('afterbegin', data.commentHtml)
         let ml = document.querySelector(`#comments${qwelId}`).firstChild.querySelector('.minilookContainer')

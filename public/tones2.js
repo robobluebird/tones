@@ -506,12 +506,21 @@ const createGrid = (e) => {
 }
 
 const duplicatePhrase = (e) => {
+  e.preventDefault()
+
   let pIndex = parseInt(e.target.id.slice(9))
   let encodedPhrase = encodePhrase(pIndex)
   let current = encodeAll()
 
   setEncodes(current.concat('|', encodedPhrase))
   init()
+
+  let asdf = [...document.querySelectorAll('.phrase')].pop()
+  asdf.style.backgroundColor = 'rgba(0,255,0,0.1)'
+  setTimeout(() => {
+    asdf.style.backgroundColor = 'unset'
+  }, 1000)
+  asdf.scrollIntoView()
 }
 
 const setEncodes = (newEncoding) => {
@@ -758,6 +767,7 @@ const changeSequence = (e) => {
   } else {
     generateSequence(true)
   }
+
   setEncodes()
 }
 
@@ -1494,6 +1504,9 @@ const highlightColumn = () => {
     if (lastSequenceIndex !== sequenceIndex) {
       sequenceSelects[sequenceIndex].classList.add('gray')
 
+      document.querySelector(`#phrase${phraseIndex}`).scrollIntoView()
+      window.scrollBy(0, -(document.querySelector('#actions').offsetHeight))
+
       if (lastSequenceIndex !== null && lastSequenceIndex !== undefined) {
         sequenceSelects[lastSequenceIndex].classList.remove('gray')
       }
@@ -1582,6 +1595,10 @@ const save = () => {
 
 const play = () => {
   stop()
+
+  if (!phraseBuffers || !timeStops) {
+    generateSound(null, true, false)
+  }
 
   bufferSource = audioCtx().createBufferSource()
   bufferSource.connect(audioCtx().destination)

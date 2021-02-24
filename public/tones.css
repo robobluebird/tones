@@ -6,12 +6,25 @@ select, button, input, label, form {
   font-family: monospace;
 }
 
+.inlineBlock {
+  display: inline-block;
+}
+
 h1 {
   margin: 0;
 }
 
+.pointy {
+  cursor: pointer;
+}
+
+.hidden {
+  display: none;
+}
+
 .frenName {
   margin-bottom: 1em;
+  font-size: 1.2em;
 }
 
 .lookView {
@@ -35,7 +48,6 @@ h1 {
 
 .look {
   width: 100%;
-  cursor: pointer;
 }
 
 .noselect {
@@ -155,7 +167,7 @@ button {
 }
 
 .spaceRight {
-  margin-right: 0.25em;
+  margin-right: 0.5em;
 }
 
 .qwelAnchor {
@@ -225,6 +237,43 @@ ul {
   padding: 0.5em;
   position: relative;
   margin-top: 1em;
+}
+
+.qwel.options {
+  padding: 0;
+}
+
+.qwel .options {
+  display: flex;
+}
+
+.qwel .options .option {
+  padding: 0.5em;
+  border-bottom: 1px solid black;
+  box-sizing: border-box;
+  text-align: center;
+  flex: 1;
+  cursor: pointer;
+}
+
+.qwel .options .option.active {
+  border-bottom: none;
+}
+
+.qwel .options .option:not(:last-child) {
+  border-right: 1px solid black;
+}
+
+.qwel .options .option .text {
+  vertical-align: middle;
+}
+
+.qwel .options .option.active .text {
+  text-decoration: underline;
+}
+
+.qwel.options .content {
+  padding: 0.5em;
 }
 
 .qwel:not(:last-child) {
@@ -318,6 +367,7 @@ ol {
 }
 
 #actions {
+  font-size: 1.2em;
   z-index: 2;
   display: flex;
   flex-direction: column;
@@ -360,6 +410,7 @@ ol {
 #bottomActions button {
   width: 100%;
   margin: 0;
+  font-size: 1.2em;
 }
 
 .step {
@@ -372,6 +423,7 @@ ol {
 
 .gridContainer label, .gridContainer select {
   margin: auto 0 auto 0;
+  font-size: 0.7em;
 }
 
 .delete, .delPhrase {
