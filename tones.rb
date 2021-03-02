@@ -19,7 +19,9 @@ helpers do
       'Provide a name, password, and password confirmation.',
       'Trying to trick me?',
       "Password and confirmation don't match.",
-      'That name is taken.'
+      'That name is taken.',
+      'Only alphanumerics, dashes ("-"), or underscores ("_") for name please.',
+      'Please limit name to 32 characters or less'
     ][code.to_i]
   end
 
@@ -28,17 +30,21 @@ helpers do
 
     case t
     when 0
-      'today'
+      time.strftime '%l:%M%P'
     when 1
-      'yesterday'
+      "#{time.strftime('%l:%M%P')} yesterday"
     else
-      "#{t} days ago"
+      if time.year === Time.now.utc.year
+        time.strftime('%b %e, %l:%M%P')
+      else
+        time.strftime('%b %e, %Y, %l:%M%P')
+      end
     end
   end
 
   def db
     @db ||= begin
-      db = SQLite3::Database.new "ql3.db"
+      db = SQLite3::Database.new "ql5.db"
 
       db.execute_batch <<-SQL
         create table if not exists looks (
@@ -56,6 +62,7 @@ helpers do
 
         create table if not exists poasts (
           id integer primary key,
+          title text,
           body text,
           look text,
           fren_id integer,
@@ -65,7 +72,7 @@ helpers do
           foreign key(poast_id) references poasts(id)
         );
 
-        create table if not exists forks (
+        create table if not exists remixes (
           id integer primary key,
           snapshot text,
           qwel_id integer,
@@ -84,9 +91,9 @@ helpers do
           created_at date,
           updated_at date,
           fren_id integer,
-          fork_id integer,
+          remix_id integer,
           foreign key(fren_id) references frens(id),
-          foreign key(fork_id) references forks(id)
+          foreign key(remix_id) references remixes(id)
         );
 
         create table if not exists comments (
@@ -145,7 +152,7 @@ helpers do
   end
 
   def get_qwel id
-    q = db.execute("select id, name, rep, length, look, fren_id, created_at, updated_at, fork_id from qwels where id = ? limit 1", id).first
+    q = db.execute("select id, name, rep, length, look, fren_id, created_at, updated_at, remix_id from qwels where id = ? limit 1", id).first
 
     Qwel.new(q) if q
   end
@@ -162,11 +169,19 @@ helpers do
     Fren.new(f) if f
   end
 
-  def get_poasts
-    db.execute('select * from poasts where poast_id is null order by created_at desc').map do |p|
-      Poast.new p
-      p.fren = get_fren(p.fren_id) if p.fren_id
-      p
+  def get_poasts parent_id = nil, id = nil
+    query = if parent_id
+              'select * from poasts where poast_id = ? order by created_at asc'
+            elsif id
+              'select * from poasts where id = ? limit 1'
+            else
+              'select * from poasts where poast_id is null order by created_at desc'
+            end
+
+    db.execute(query, parent_id || id).map do |p|
+      n = Poast.new p
+      n.fren = get_fren(n.fren_id) if n.fren_id
+      n
     end
   end
 end
@@ -207,20 +222,45 @@ class Comment
 end
 
 class Poast
-  attr_reader :id, :body, :look, :fren_id, :poast_id, :created_at
-  attr_accessor :fren, :poast
+  attr_reader :id, :title, :body, :look, :fren_id, :poast_id, :created_at
+  attr_accessor :fren, :poast, :replies
 
   def initialize ary = nil
     @id = ary[0]
-    @body = ary[1]
-    @look = ary[2]
-    @fren_id = ary[3]
-    @poast_id = ary[4]
-    @created_at = Time.parse(ary[5]) if ary[5]
+    @title = ary[1]
+    @body = ary[2]
+    @look = ary[3]
+    @fren_id = ary[4]
+    @poast_id = ary[5]
+    @created_at = Time.parse(ary[6]) if ary[6]
+    @replies = []
+  end
+
+  def parsed
+    parsed = []
+    parts = @body.split("'''")
+
+    if parts.length > 2
+      i = 1
+      while i < parts.length - 1
+        l = parts[i].strip
+        unless l.empty?
+          parsed.push (i % 2).odd? ? [:q, l] : [:l, l]
+        end
+        i += 1
+      end
+      f = parts.first.strip
+      l = parts.last.strip
+      parsed.unshift [:l, f] unless f.empty?
+      parsed.push [:l, l] unless l.empty?
+      parsed
+    else
+      [[:l, parts.first.strip]]
+    end
   end
 end
 
-class Fork
+class Remix 
   attr_reader :id, :qwel_id, :fren_id, :snapshot, :created_at
   attr_accessor :qwel, :fren
 
@@ -235,8 +275,8 @@ class Fork
 end
 
 class Qwel
-  attr_reader :id, :name, :rep, :length, :tags, :likes, :fren_id, :fork_id, :created_at, :updated_at
-  attr_accessor :fren, :likes, :length, :comments, :forks, :forked_from
+  attr_reader :id, :name, :rep, :length, :tags, :likes, :fren_id, :remix_id, :created_at, :updated_at
+  attr_accessor :fren, :likes, :length, :comments, :remixes, :remixed_from
 
   def initialize ary = nil
     if ary.respond_to?(:each)
@@ -248,7 +288,7 @@ class Qwel
       @fren_id = ary[5]
       @created_at = Time.parse(ary[6]) if ary[6]
       @updated_at = Time.parse(ary[7]) if ary[7]
-      @fork_id = ary[8]
+      @remix_id = ary[8]
       @like_count = ary[9]
     else
       @rep = ""
@@ -256,7 +296,7 @@ class Qwel
 
     @likes = []
     @comments = []
-    @forks = []
+    @remixes = []
   end
 
   def liked_by? fren_id_or_fren
@@ -265,10 +305,10 @@ class Qwel
     !!@likes.find { |l| l.fren_id && l.fren_id == f }
   end
 
-  def forked_by? fren_id_or_fren
+  def remixed_by? fren_id_or_fren
     f = fren_id_or_fren.is_a?(Fren) ? fren_id_or_fren.id : fren_id_or_fren
 
-    !!@forks.find { |f| f.fren_id && f.fren_id == f }
+    !!@remixes.find { |f| f.fren_id && f.fren_id == f }
   end
 end
 
@@ -305,6 +345,9 @@ end
 
 def random_id no = nil
   s = db.execute("select count(id) from qwels").first.first
+
+  return if s.zero?
+
   r = Random.new.rand(1..s)
 
   while r == no do r = Random.new.rand(1..s) end
@@ -356,7 +399,7 @@ def qwels_with_frens_and_like_counts fren_id = nil, id = nil, like_fren_id = nil
         ' '
       end
 
-  q = "select qwels.id, qwels.name, rep, length, qwels.look, qwels.fren_id, created_at, updated_at, fork_id, count(likes.qwel_id) as like_count, frens.id, frens.name, frens.look from qwels inner join frens on qwels.fren_id = frens.id left join likes on qwels.id = likes.qwel_id#{f}group by qwels.id order by #{s} limit #{page_size * (page - 1)}, #{page_size}"
+  q = "select qwels.id, qwels.name, rep, length, qwels.look, qwels.fren_id, created_at, updated_at, remix_id, count(likes.qwel_id) as like_count, frens.id, frens.name, frens.look from qwels inner join frens on qwels.fren_id = frens.id left join likes on qwels.id = likes.qwel_id#{f}group by qwels.id order by #{s} limit #{page_size * (page - 1)}, #{page_size}"
 
   db.execute(q).map do |row|
     q = Qwel.new row[0..9]
@@ -365,15 +408,15 @@ def qwels_with_frens_and_like_counts fren_id = nil, id = nil, like_fren_id = nil
 
     q.likes = db.execute('select id, look, qwel_id, fren_id from likes where qwel_id = ?', q.id).map { |l| Like.new l }
 
-    q.forks = db.execute('select id, qwel_id, fren_id, snapshot from forks where qwel_id = ?', q.id).map { |f| Fork.new f }
+    q.remixes = db.execute('select id, qwel_id, fren_id, snapshot from remixes where qwel_id = ?', q.id).map { |f| Remix.new f }
 
-    if q.fork_id
-      qfres = db.execute('select qwels.id, qwels.name, frens.id, frens.name, frens.look from qwels inner join frens on qwels.fren_id = frens.id inner join forks on qwels.id = forks.qwel_id where forks.id = ? limit 1', q.fork_id).first
+    if q.remix_id
+      qfres = db.execute('select qwels.id, qwels.name, frens.id, frens.name, frens.look from qwels inner join frens on qwels.fren_id = frens.id inner join remixes on qwels.id = remixes.qwel_id where remixes.id = ? limit 1', q.remix_id).first
 
       qf = Qwel.new qfres[0..1]
       qf.fren = Fren.new qfres[2..4]
 
-      q.forked_from = qf
+      q.remixed_from = qf
     end
 
     q
@@ -382,6 +425,7 @@ end
 
 get '/random' do
   id = params[:i] ? params[:i].to_i : random_id(params[:r].to_i)
+  
   @qwel = qwels_with_frens_and_like_counts(nil, id).first
 
   erb :random
@@ -430,7 +474,7 @@ end
 
 get '/frens/:fren_id/look' do
   look = db.execute('select look from frens where id = ?', params[:fren_id]).first.first
-  erb :look, locals: {
+  erb :just_look, locals: {
     look: look,
     editable: current_fren && current_fren.id == params[:fren_id].to_i,
     editNow: look.nil?,
@@ -476,8 +520,10 @@ post '/frens' do
   if !params[:name] || !params[:password] || !params[:password_confirmation] ||
     params[:name].length.zero? || params[:password].length.zero? || params[:password_confirmation].length.zero?
     redirect to("/frens/new?name=#{params[:name]}&p=SignUp&e=3")
-  elsif params[:name].gsub(/\ +/, '').length.zero?
-    redirect to('/frens/new?name=#{params[:name]}&p=SignUp&e=4')
+  elsif !params[:name].match(/^[a-zA-Z0-9\-_]+$/)
+    redirect to("/frens/new?p=SignUp&e=7")
+  elsif params[:name].length > 32
+    redirect to("/frens/new?name=#{params[:name]}&p=SignUp&e=8")
   elsif params[:password_confirmation] != params[:password]
     redirect to("/frens/new?name=#{params[:name]}&p=SignUp&e=5")
   else
@@ -536,21 +582,21 @@ put '/qwels/:qwel_id' do
   { id: params[:qwel_id] }.to_json
 end
 
-post '/qwels/:qwel_id/fork' do
+post '/qwels/:qwel_id/remix' do
   q = get_qwel params[:qwel_id]
 
   t = Time.now.utc.to_s
 
-  db.execute 'insert into forks (snapshot, qwel_id, fren_id, created_at) values (?, ?, ?, ?)', [q.rep, q.id, current_fren.id, t]
+  db.execute 'insert into remixes (snapshot, qwel_id, fren_id, created_at) values (?, ?, ?, ?)', [q.rep, q.id, current_fren.id, t]
 
   t = Time.now.utc.to_s
-  name = "#{current_fren.name}'s #{q.name} fork"
+  name = "#{current_fren.name}'s #{q.name} remix"
 
   rep = q.rep.split '|'
   rep[0] = URI.escape(name, Regexp.new("[^#{URI::PATTERN::UNRESERVED}]"))
   rep = rep.join '|'
 
-  db.execute 'insert into qwels (name, rep, length, fren_id, fork_id, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?)', [name, rep, q.length, current_fren.id, db.last_insert_row_id, t, t]
+  db.execute 'insert into qwels (name, rep, length, fren_id, remix_id, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?)', [name, rep, q.length, current_fren.id, db.last_insert_row_id, t, t]
 
   redirect to("/qwels/#{db.last_insert_row_id}")
 end
@@ -638,6 +684,7 @@ end
 
 get '/poasts' do
   @poasts = get_poasts
+  @poasts.each { |p| p.replies = get_poasts(p.id) }
   erb :poasts
 end
 
@@ -645,6 +692,16 @@ get '/poasts/new' do
 end
 
 post '/poasts' do
+  if current_fren && current_fren.id == params[:fren_id].to_i
+    if params[:body].strip.length > 0
+      db.execute 'insert into poasts (title, body, fren_id, created_at) values (?, ?, ?, ?)', [params[:title].strip, params[:body].strip, params[:fren_id], Time.now.utc.to_s]
+
+      redirect to("/poasts")
+    else
+    end
+  else
+    401
+  end
 end
 
 get '/poasts/:poast_id' do
@@ -654,6 +711,24 @@ get '/poasts/:post_id/new' do
 end
 
 post '/poasts/:poast_id/poasts' do
+  unless params[:body] &&
+         params[:body].strip.length > 0 &&
+         params[:poast_id].to_i > 0  &&
+         params[:fren_id] &&
+         current_fren &&
+         current_fren.id == params[:fren_id].to_i
+    halt 400
+  end
+  
+  db.execute 'insert into poasts (body, fren_id, poast_id, created_at) values (?, ?, ?, ?)', [params[:body], params[:fren_id], params[:poast_id], Time.now.utc.to_s]
+
+  if xhr?
+    p = get_poasts(nil, db.last_insert_row_id).first
+
+    {id: p.id, poastHtml: erb(:poastReply, {layout: false, locals: {parent_id: params[:poast_id].to_i, poast: p}})}.to_json
+  else
+    redirect to('/poasts')
+  end
 end
 
 get '/words' do
@@ -682,6 +757,7 @@ __END__
           <% if current_fren %>
             <a class="spaceRight" style="font-size: 1.0em;" href="/qwels/new">new</a>
           <% end %>
+          <a class="spaceRight" href="/poasts">poasts</a>
           <a class="spaceRight" href="/random">random</a>
           <% if current_fren %>
             <a class="spaceRight" href="/frens/<%= current_fren.id %>">me</a>
@@ -696,6 +772,168 @@ __END__
     </div>
   </body>
 </html>
+
+@@ poasts
+<% if current_fren %>
+  <div class="newPoast poast">
+    <div><b>make a new poast of power</b></div>
+    <form action="/poasts" method="post">
+      <div class="smolTopAndBottomMargin">
+        <input class="fullWidth" type="text" name="title" placeholder="title of new poast" />
+      </div>
+      <div class="smolTopAndBottomMargin">
+        <textarea id="area0" name="body" placeholder="type a new poast"></textarea>
+      </div>
+      <input type="hidden" name="fren_id" value=<%= current_fren.id %> />
+      <input disabled type="submit" id="submit0" />
+    </form>
+  </div>
+<% end %>
+<% if @poasts.empty? %>
+  <div class="poast">
+    nothing to see here!
+  </div>
+<% end %>
+<% @poasts.each do |p| %>
+  <div class="poast">
+    <div class="body">
+      <% if p.title %>
+        <div class="title">
+          <%= p.title %>
+        </div>
+      <% end %>
+      <div class="text" id="text<%= p.id %>">
+        <% p.parsed.each do |bp| %><% if bp.first == :q %><div class="quote"><%= bp.last %></div><% else %><span><%= bp.last %></span><% end %>
+        <% end %>
+      </div>
+      <div class="commentInfo">
+        <%= p.fren.name %>
+        <% if p.fren.look %>
+          <%= erb :minilook, locals: {width: '16px', look: p.fren.look, fren_id: p.fren.id} %>
+        <% end %> - <%= chron p.created_at %><% if current_fren %> - <a class="doQuote" href="#" id="quote<%= p.id %>-<%= p.id %>">quote</a><% end %>
+      </div>
+    </div>
+    <div class="replies" id="replies<%= p.id %>">
+      <% p.replies.each do |r| %>
+        <%= erb :poastReply, locals: {parent_id: p.id, poast: r} %>
+      <% end %>
+    </div>
+    <% if current_fren %>
+      <div class="reply">
+        <div class="newPoast">
+          <form action="/poasts/<%= p.id %>/poasts" method="post" class="poastReplyForm" id="poastReplyForm<%= p.id %>">
+            <div>
+              <textarea id="area<%= p.id %>" name="body" placeholder="type a new poast"></textarea>
+            </div>
+            <input type="hidden" name="fren_id" value=<%= current_fren.id %> />
+            <input disabled type="submit" id="submit<%= p.id %>" />
+          </form>
+        </div>
+      </div>
+    <% end %>
+  </div>
+<% end %>
+<%= erb :minilookhelp %>
+<script type="text/javascript">
+  const quoteClick = (e) => {
+    e.preventDefault()
+
+    let idStrParts = e.target.id.slice(5).split('-')
+    let poastId = parseInt(idStrParts[0])
+    let replyId = parseInt(idStrParts[1])
+    let text = [...document.querySelector(`#text${replyId}`).children].map(c => {
+      if (c.className === 'quote')
+        return `[${c.innerText}]` 
+      else
+        return c.innerText
+    }).join(' ')
+    let area = document.querySelector(`#poastReplyForm${poastId} textarea`)
+    area.value = area.value + "'''" + text + "'''\n"
+  }
+
+  const postReply = (e) => {
+    e.preventDefault()
+
+    let form = e.target
+    let input = form.querySelector(':scope textarea')
+    let poastId = parseInt(form.id.slice(14))
+
+    if (input.value.length === 0)
+      return false
+
+    let url = form.action
+    let method = form.method
+    let frenId = form.querySelector(':scope input[name="fren_id"]').value
+    let body = input.value
+    let btn = form.querySelector(':scope input[type="submit"]')
+    let xhr = new XMLHttpRequest();
+    xhr.open(method, url, true);
+    xhr.setRequestHeader('Content-Type', 'application/json')
+    xhr.onreadystatechange = function() {
+      if (this.readyState != 4) return
+      if (this.status == 200) {
+        input.value = ''
+        input.blur()
+        btn.disabled = true
+        let data = JSON.parse(this.responseText)
+        document.querySelector(`#replies${poastId}`).insertAdjacentHTML('beforeend', data.poastHtml)
+        document.querySelector(`#quote${poastId}-${data.id}`).onclick = quoteClick
+        let ml = document.querySelector(`#reply${data.id} .minilookContainer`)
+        layoutMinilooks(ml)
+      } else {
+        console.error("BAD: ", this.status, this.responseText)
+      }
+    }
+
+    let bag = {
+      fren_id: frenId,
+      body: body
+    }
+
+    xhr.send(JSON.stringify(bag));
+  }
+
+  forEach(document.querySelectorAll('.poastReplyForm'), (index, form) => {
+    form.onsubmit = postReply
+  })
+
+  forEach(document.querySelectorAll('.doQuote'), (index, q) => {
+    q.onclick = quoteClick
+  })
+
+  forEach(document.querySelectorAll('textarea'), (index, input) => {
+    let id = parseInt(input.id.slice(4))
+    let btn = document.querySelector(`#submit${id}`)
+    input.onkeyup = (e) => {
+      btn.disabled = input.value.length === 0
+    }
+  })
+</script>
+
+@@ poastReply
+<div class="reply" id="reply<%= poast.id %>">
+  <div class="replyBody" id="text<%= poast.id %>">
+    <% poast.parsed.each do |bp| %><% if bp.first == :q %><div class="quote"><%= bp.last %></div><% else %><span><%= bp.last %></span><% end %>
+    <% end %>
+  </div>
+  <div class="replyInfo">
+    <%= poast.fren.name %>
+    <% if poast.fren.look %>
+      <%= erb :minilook, locals: {width: '16px', look: poast.fren.look, fren_id: poast.fren.id} %>
+    <% end %> - <%= chron poast.created_at %><% if current_fren %> - <a class="doQuote" href="#" id="quote<%= parent_id %>-<%= poast.id %>">quote</a><% end %>
+  </div>
+</div>
+
+@@ just_look
+<div class="lookView">
+  <%= erb :look, locals: {
+    look: look,
+    editable: editable,
+    editNow: editNow,
+    form_action: form_action,
+    form_method: form_method
+  } %>
+</div>
 
 @@ look
 <% form_action = "/looks" unless form_action %>
@@ -1022,7 +1260,13 @@ __END__
 
 @@ random
 <div>
-  <%= erb :mini, locals: {qwel: @qwel} %>
+  <% if @qwel %>
+    <%= erb :mini, locals: {qwel: @qwel} %>
+  <% else %>
+    <div class="qwel">
+      nothing exists yet!
+    </div>
+  <% end %>
 </div>
 <%= erb :minilookhelp %>
 <%= erb :minihelp %>
@@ -1054,7 +1298,7 @@ __END__
     </div>
     <div style="display: none;" class="contentPane" id="contentSignUp">
       <form action="/frens" method="post" autocomplete="off">
-        <input class="fullWidth" type="text" name="name" placeholder="name" value="<%= params[:name] %>" /> 
+        <input class="fullWidth" type="text" name="name" placeholder='name (letters, numbers, "-", "_")' value="<%= params[:name] %>" /> 
         <br />
         <input class="fullWidth" type="password" name="password" placeholder="password" /> 
         <br />
@@ -1179,28 +1423,30 @@ __END__
     <span id="likes<%= qwel.id %>">
       <%= erb :like_info, locals: {qwel: qwel} %>
     </span>
-    <% if current_fren && qwel.fren_id != current_fren.id && !qwel.forked_by?(current_fren)  %>
-      <form method="POST" action="/qwels/<%= qwel.id %>/fork">
-        <input type="submit" value="fork" />
+    <% if current_fren && qwel.fren_id != current_fren.id && !qwel.remixed_by?(current_fren)  %>
+      <form method="POST" action="/qwels/<%= qwel.id %>/remix">
+        <input type="submit" value="remix" />
       </form>
     <% end %>
   </div>
-  <% if qwel.forked_from %>
+  <% if qwel.remixed_from %>
     <div class="secondLine">
-      forked from <a href="/qwels/<%= qwel.forked_from.id %>"><%= qwel.forked_from.name %></a> by <a href="/frens/<%= qwel.forked_from.fren.id %>"><%= qwel.forked_from.fren.name %></a>
-      <% if qwel.forked_from.fren.look %>
-        <%= erb :minilook, locals: {width: '16px', look: qwel.forked_from.fren.look, fren_id: qwel.forked_from.fren.id} %>
+      remixed from <a href="/qwels/<%= qwel.remixed_from.id %>"><%= qwel.remixed_from.name %></a> by <a href="/frens/<%= qwel.remixed_from.fren.id %>"><%= qwel.remixed_from.fren.name %></a>
+      <% if qwel.remixed_from.fren.look %>
+        <%= erb :minilook, locals: {width: '16px', look: qwel.remixed_from.fren.look, fren_id: qwel.remixed_from.fren.id} %>
       <% end %>
     </div>
   <% end %>
   <div class="comms">
     <a class="qwelAnchor2" id="m<%= qwel.id %>"></a>
     <% if current_fren %>
-      <form class="commentForm" id="commentForm<%= qwel.id %>" autocomplete="off" method="post" action="/qwels/<%= qwel.id %>/comments<%= "?#{request.query_string}" unless request.query_string.empty? %>">
-        <input name="fren_id" type="hidden" value=<%= current_fren.id %> />
-        <input name="body" class="commentInput" type="text" form="commentForm<%= qwel.id %>" id="commentInput<%= qwel.id %>" placeholder="add a comment" />
-        <input style="margin-top: 20px;" class="commentButton" id="submitComment<%= qwel.id %>" type="submit" disabled value="post comment">
-      </form>
+      <div class="commentFormHolder">
+        <form class="commentForm" id="commentForm<%= qwel.id %>" autocomplete="off" method="post" action="/qwels/<%= qwel.id %>/comments<%= "?#{request.query_string}" unless request.query_string.empty? %>">
+          <input name="fren_id" type="hidden" value=<%= current_fren.id %> />
+          <input style="margin-top: 1em;" name="body" class="commentInput" type="text" form="commentForm<%= qwel.id %>" id="commentInput<%= qwel.id %>" placeholder="add a comment" />
+          <input class="commentButton" id="submitComment<%= qwel.id %>" type="submit" disabled value="post comment">
+        </form>
+      </div>
     <% end %>
     <ul id="comments<%= qwel.id %>">
       <% qwel.comments.each do |c| %>
@@ -1214,10 +1460,10 @@ __END__
 <li class="comment">
   <div class="commentBody"><%= comment.body %></div>
   <div class="commentInfo">
-    <i><%= comment.fren.name %>
+    <%= comment.fren.name %>
     <% if comment.fren.look %>
       <%= erb :minilook, locals: {width: '16px', look: comment.fren.look, fren_id: comment.fren.id} %>
-    <% end %> - <%= chron comment.created_at %></i>
+    <% end %> - <%= chron comment.created_at %>
   </div>
 </li>
 
@@ -1246,6 +1492,7 @@ __END__
     let method = form.method
     let frenId = form.querySelector(':scope input[name="fren_id"]').value
     let body = form.querySelector(':scope input[name="body"]').value
+    let btn = form.querySelector(':scope input[type="submit"]')
     let xhr = new XMLHttpRequest();
     xhr.open(method, url, true);
     xhr.setRequestHeader('Content-Type', 'application/json')
@@ -1254,6 +1501,7 @@ __END__
       if (this.status == 200) {
         input.value = ''
         input.blur()
+        btn.disabled = true
         let data = JSON.parse(this.responseText)
         document.querySelector(`#comments${qwelId}`).insertAdjacentHTML('afterbegin', data.commentHtml)
         let ml = document.querySelector(`#comments${qwelId}`).firstChild.querySelector('.minilookContainer')

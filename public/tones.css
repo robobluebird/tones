@@ -14,6 +14,10 @@ h1 {
   margin: 0;
 }
 
+.smolTopAndBottomMargin {
+  margin: 0.5em 0 0.5em 0;
+}
+
 .pointy {
   cursor: pointer;
 }
@@ -24,7 +28,7 @@ h1 {
 
 .frenName {
   margin-bottom: 1em;
-  font-size: 1.2em;
+  font-size: 1.1em;
 }
 
 .lookView {
@@ -231,12 +235,77 @@ ul {
   list-style-type: none;
 }
 
-.qwel {
+.qwel, .poast {
   border: 1px solid black;
   border-radius: 10px;
-  padding: 0.5em;
+  padding: 1em;
   position: relative;
   margin-top: 1em;
+}
+
+.newPost .body {
+  display: block;
+}
+
+.poast .body {
+  font-size: 0.9em;
+  margin-bottom: 1em;
+}
+
+.poast .body .title {
+  font-weight: bold;
+  margin-bottom: 1em;
+}
+
+.poast .body .text {
+  margin-bottom: 1em;
+}
+
+.poast .body .text span {
+  white-space: pre-line;
+}
+
+.reply .replyBody span {
+  white-space: pre-line;
+}
+
+.commentBody {
+  font-size: 0.9em;
+}
+
+.poastInfo, .commentInfo, .replyInfo {
+  font-style: italic;
+  font-size: 0.8em;
+}
+
+.quote {
+  background-color: lightgray;
+  margin: 1em;
+  padding: 0.5em;
+}
+
+.poastInfo a, .commentInfo a, .replyInfo a {
+  font-style: normal;
+  font-size: 1em;
+}
+
+.reply {
+  padding: 1em 1em 1em 1em;
+  border-top: 1px dashed black;
+}
+
+.replyInfo a {
+  font-style: normal;
+  font-size: 1em;
+}
+
+.replyInfo a {
+  font-style: normal;
+}
+
+.replyBody {
+  font-size: 0.9em;
+  margin-bottom: 0.5em;
 }
 
 .qwel.options {
@@ -283,12 +352,20 @@ ul {
   text-align: right;
   position: relative;
   width: 100%;
-  margin-top: 1em;
+}
+
+.commentFormHolder {
+  padding: 0.5em;
 }
 
 li.comment {
   text-align: left;
-  padding: 1em;
+  padding: 0.5em;
+}
+
+li.comment:first-child {
+  border-top: 1px dashed black;
+  margin-top: 1em;
 }
 
 li.comment:not(:first-child) {
@@ -306,12 +383,23 @@ li.comment:not(:last-child) {
   display: inline-block;
 }
 
+textarea {
+  width: 100%;
+  height: 5em;
+}
+
 #nameline {
   text-align: center;
 }
 
 #main {
-  padding: 0.5em;
+  padding: 1em;
+}
+
+@media only screen and (min-width: 600px) {
+  #main {
+    width: 75%;
+  }
 }
 
 @media only screen and (min-width: 800px) {
@@ -367,7 +455,7 @@ ol {
 }
 
 #actions {
-  font-size: 1.2em;
+  font-size: 1.1em;
   z-index: 2;
   display: flex;
   flex-direction: column;
@@ -662,13 +750,6 @@ body {
   top: 0;
   right: 0;
   padding: 5px;
-}
-
-.sortHolder {
-}
-
-.commentInfo {
-  font-style: italic;
 }
 
 .proto {
