@@ -2,11 +2,14 @@ require 'bazaar'
 require 'bcrypt'
 require 'sinatra'
 require 'sqlite3'
+require 'sysrandom'
 require 'time'
 
 include BCrypt
 
-enable :sessions
+use Rack::Session::Cookie, :key => 'rack.session',
+                           :path => '/',
+                           :secret => ENV.fetch('SESSION_SECRET') { SecureRandom.hex(64) }
 
 class String; def humanize; self.capitalize; end; end
 
