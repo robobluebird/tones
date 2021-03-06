@@ -1,9 +1,11 @@
 html {
   font-family: monospace;
+  font-size: 16px;
 }
 
 select, button, input, label, form {
   font-family: monospace;
+  font-size: 16px;
 }
 
 .inlineBlock {
@@ -24,6 +26,11 @@ h1 {
 
 .hidden {
   display: none;
+}
+
+.freeLookHolder {
+  width: 100%;
+  margin: 1em auto 1em auto;
 }
 
 .frenName {
@@ -64,7 +71,7 @@ h1 {
                                   supported by Chrome, Edge, Opera and Firefox */
 }
 
-#colorCell {
+.colorCell {
   display: inline-block;
   width: 1em;
 }
@@ -86,7 +93,7 @@ h1 {
 }
 
 .secondLine {
-  margin: 0.5em 0 0 0;
+  margin: 0.5em 0 0.5em 0;
 }
 
 .comms, .playHint {
@@ -134,13 +141,6 @@ a.noStyle:active {
 .dupPhrase {
   margin-left: 0.5em;
   vertical-align: middle;
-}
-
-input, select, button, label {
-}
-
-
-mainq input, select, button, label {
 }
 
 select {
@@ -226,9 +226,6 @@ input.error {
   width: 100%;
 }
 
-.commentButton {
-}
-
 ul {
   padding: 0;
   margin: 0;
@@ -248,7 +245,6 @@ ul {
 }
 
 .poast .body {
-  font-size: 0.9em;
   margin-bottom: 1em;
 }
 
@@ -267,10 +263,6 @@ ul {
 
 .reply .replyBody span {
   white-space: pre-line;
-}
-
-.commentBody {
-  font-size: 0.9em;
 }
 
 .poastInfo, .commentInfo, .replyInfo {
@@ -306,6 +298,10 @@ ul {
 .replyBody {
   font-size: 0.9em;
   margin-bottom: 0.5em;
+}
+
+.commentBody {
+  font-size: 0.9em;
 }
 
 .qwel.options {
@@ -399,6 +395,10 @@ textarea {
 @media only screen and (min-width: 600px) {
   #main {
     width: 75%;
+  }
+
+  .freeLookHolder {
+    width: 50%;
   }
 }
 
@@ -510,8 +510,8 @@ ol {
 }
 
 .gridContainer label, .gridContainer select {
-  margin: auto 0 auto 0;
-  font-size: 0.7em;
+  margin-left: 0;
+  margin-right: 0;
 }
 
 .delete, .delPhrase {
@@ -612,7 +612,8 @@ body {
   vertical-align: top;
   line-height: 17em;
   cursor: pointer;
-  background-color: #EEEEEE;
+  border: 1px solid black;
+  border-radius: 10px;
 }
 
 #addphrase {
@@ -621,7 +622,8 @@ body {
   height: 2em;
   line-height: 2em;
   text-align: center;
-  background-color: #EEEEEE;
+  border: 1px solid black;
+  border-radius: 10px;
 }
 
 .add:hover {
@@ -685,7 +687,7 @@ body {
   background-color: #CCCCCC;
 }
 
-.gray3 {
+.gray3, .lightgray {
   background-color: #EEEEEE;
 }
 
@@ -701,36 +703,92 @@ body {
   background-color: #777777;
 }
 
+.lightbrown {
+  background-color: sandybrown;
+}
+
+.brown {
+  background-color: brown;
+}
+
 .red {
   background-color: red;
+}
+
+.lightred {
+  background-color: indianred;
+}
+
+.darkred {
+  background-color: darkred;
 }
 
 .orange {
   background-color: orange;
 }
 
+.orangered {
+  background-color: orangered;
+}
+
+.darkorange {
+  background-color: darkorange;
+}
+
 .yellow {
   background-color: yellow;
+}
+
+.lightyellow {
+  background-color: lightyellow;
+}
+
+.gold {
+  background-color: gold;
 }
 
 .green {
   background-color: green;
 }
 
+.lightgreen {
+  background-color: lightgreen;
+}
+
+.darkgreen {
+  background-color: darkgreen;
+}
+
 .blue {
   background-color: blue;
 }
 
-.indigo {
-  background-color: indigo;
+.lightblue {
+  background-color: lightblue;
 }
 
-.violet {
-  background-color: violet;
+.darkblue {
+  background-color: darkblue;
 }
 
 .purple {
   background-color: purple;
+}
+
+.lightpurple {
+  background-color: mediumpurple;
+}
+
+.darkpurple {
+  background-color: indigo;
+}
+
+.pink {
+  background-color: pink;
+}
+
+.lightpink {
+  background-color: lightpink;
 }
 
 .black {

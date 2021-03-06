@@ -491,7 +491,11 @@ post '/frens/:fren_id/look' do
     db.execute 'update frens set look = ? where id = ?', [params[:look], params[:fren_id]]
   end
 
-  redirect to back
+  if params[:r] && params[:r] == 'h'
+    redirect to '/'
+  else
+    redirect to back
+  end
 end
 
 post '/login' do
@@ -507,7 +511,7 @@ post '/login' do
       session[:fren_id] = f.id
       
       if f.look.nil?
-        redirect to("/frens/#{f.id}/look")
+        redirect to("/frens/#{f.id}/look?r=h")
       else
         redirect to('/')
       end
@@ -540,7 +544,7 @@ post '/frens' do
   db.execute 'insert into frens (name, password_hash, last_login) values (?, ?, ?)',
     [params[:name], Password.create(params[:password]), Time.now.utc.to_s]
   session[:fren_id] = db.last_insert_row_id
-  redirect to("/frens/#{db.last_insert_row_id}/look")
+  redirect to("/frens/#{db.last_insert_row_id}/look?r=h")
 end
 
 get '/error' do
@@ -596,7 +600,7 @@ post '/qwels/:qwel_id/remix' do
   name = "#{current_fren.name}'s #{q.name} remix"
 
   rep = q.rep.split '|'
-  rep[0] = URI.escape(name, Regexp.new("[^#{URI::PATTERN::UNRESERVED}]"))
+  rep[0] = ERB::Util.url_encode name
   rep = rep.join '|'
 
   db.execute 'insert into qwels (name, rep, length, fren_id, remix_id, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?)', [name, rep, q.length, current_fren.id, db.last_insert_row_id, t, t]
@@ -618,7 +622,7 @@ post '/qwels/:qwel_id/comments' do
     halt 400
   end
   
-  db.execute 'insert into comments (body, fren_id, qwel_id, created_at) values (?, ?, ?, ?)', [params[:body], params[:fren_id], params[:qwel_id], Time.now.utc.to_s]
+  db.execute 'insert into comments (body, look, fren_id, qwel_id, created_at) values (?, ?, ?, ?, ?)', [params[:body], params[:look], params[:fren_id], params[:qwel_id], Time.now.utc.to_s]
 
   if xhr?
     c = get_comments(nil, db.last_insert_row_id).first
@@ -751,10 +755,13 @@ __END__
     <title>quick loops</title>
   </head>
   <body>
+    <script type="text/javascript">
+      let colors = ['red', 'lightred', 'darkred', 'orange', 'orangered', 'darkorange', 'yellow', 'lightyellow', 'gold', 'green', 'lightgreen', 'darkgreen', 'blue', 'lightblue', 'darkblue', 'purple', 'lightpurple', 'darkpurple', 'pink', 'lightpink', 'white', 'black', 'gray', 'lightgray', 'brown', 'lightbrown']
+    </script>
     <div id="actions">
       <div class="innerActions">
         <div style="flex: 0;" class="col left">
-          <a style="font-size: 1em;" href="/">quickloops</a>
+          <a id="ql" style="font-size: 1em;" href="/">QL</a>
         </div>
         <div style="flex: 1;" class="col right">
           <% if current_fren %>
@@ -812,7 +819,7 @@ __END__
       <div class="commentInfo">
         <%= p.fren.name %>
         <% if p.fren.look %>
-          <%= erb :minilook, locals: {width: '16px', look: p.fren.look, fren_id: p.fren.id} %>
+          <%= erb :minilook, locals: {width: '16px', look: p.fren.look, url: "/frens/#{p.fren.id}/look"} %>
         <% end %> - <%= chron p.created_at %><% if current_fren %> - <a class="doQuote" href="#" id="quote<%= p.id %>-<%= p.id %>">quote</a><% end %>
       </div>
     </div>
@@ -922,7 +929,7 @@ __END__
   <div class="replyInfo">
     <%= poast.fren.name %>
     <% if poast.fren.look %>
-      <%= erb :minilook, locals: {width: '16px', look: poast.fren.look, fren_id: poast.fren.id} %>
+      <%= erb :minilook, locals: {width: '16px', look: poast.fren.look, url: "frens/{poast.fren.id}/look"} %>
     <% end %> - <%= chron poast.created_at %><% if current_fren %> - <a class="doQuote" href="#" id="quote<%= parent_id %>-<%= poast.id %>">quote</a><% end %>
   </div>
 </div>
@@ -937,6 +944,178 @@ __END__
     form_method: form_method
   } %>
 </div>
+
+@@ free_look
+<div class="freeLookHolder">
+  <input type="hidden" id="freeLookInput_<%= ref_id %>" />
+  <div class="lookTools">
+    <select onchange="freeShowColor(this, '<%= ref_id %>')" class="palette">
+      <% %w(red lightred darkred orange orangered darkorange yellow lightyellow gold green lightgreen darkgreen blue lightblue darkblue purple lightpurple darkpurple pink lightpink gray lightgray black brown lightbrown white).each do |c| %>
+        <option value="<%= c %>"><%= c %></option>
+      <% end %>
+    </select>
+    <div id="colorCell_<%= ref_id %>" class="colorCell">
+      <div class="lookCellHeight"></div>
+    </div>
+  </div>
+  <div id="freeLook_<%= ref_id %>"  class="freeLook look noselect">
+    <% (16 * 16).times do |i| %><div class="noselect lookCell <%= (i.to_f / 16).floor.even? ? i.even? ? 'gray4' : 'gray5' : (i.even? ? 'gray5' : 'gray4') %>"><div class="lookCellHeight noselect"></div></div><% end %>
+  </div>
+</div>
+
+@@ free_look_help
+<script type="text/javascript">
+  let color = 'red'
+  let painting = false
+  let mouseDown = false
+  let rep = ''
+  let encodee
+
+  const freeEncode = (id) => {
+    rep = ''
+
+    forEach(document.querySelectorAll(`#freeLook_${id} .lookCell`), (i, cell) => {
+      let classNames = [...cell.classList.entries()].map(e => e[1])
+      let foundColor = classNames.find(c => colors.includes(c))
+
+      if (!!foundColor) {
+        rep = rep.concat(
+          i.toString(16).toUpperCase().padStart(2, '0'),
+          colors.indexOf(foundColor).toString(16).toUpperCase().padStart(2, '0')
+        )
+      }
+    })
+
+    let qid = id.split('-')[1]
+
+    document.querySelector(`#submitComment${qid}`).disabled = rep.length === 0 && document.querySelector(`#commentInput${qid}`).value.length === 0
+
+    document.querySelector(`#freeLookInput_${id}`).value = rep
+  }
+
+  const freeInit = () => {
+    freeHookup()
+  }
+
+  const freeParseRep = (id) => {
+    let cells = [...document.querySelectorAll(`#freeLook_${id} .lookCell`)]
+
+    rep.match(/.{1,4}/g) // get groups of 4
+       .forEach(cellRep => {
+         let positionIndex = parseInt(cellRep.slice(0, 2), 16)
+         let colorIndex = parseInt(cellRep.slice(2, 4), 16)
+
+         cells[positionIndex].classList.remove(...colors)
+         cells[positionIndex].classList.add(colors[colorIndex])
+       })
+  }
+
+  const freeShowColor = (e, id) => {
+    console.log(id)
+    document.querySelector(`#colorCell_${id}`).classList.remove(...colors)
+    document.querySelector(`#colorCell_${id}`).classList.add(e.value)
+    color = e.value
+  }
+
+  const freeStartDrag = (e) => {
+    e.preventDefault()
+
+    mouseDown = true
+    encodee = e.target.parentElement.id.split('_')[1]
+
+    if (e.target.classList.contains(color)) {
+      e.target.classList.remove(...colors)
+      painting = false
+    } else {
+      painting = true
+      e.target.classList.remove(...colors)
+      e.target.classList.add(color)
+    }
+  }
+
+  const freeMaybePaint = (e) => {
+    e.preventDefault()
+
+    if (mouseDown) {
+      if (painting) {
+        e.target.classList.remove(...colors)
+        e.target.classList.add(color)
+      } else {
+        e.target.classList.remove(...colors)
+      }
+    }
+  }
+
+  const freeHookup = () => {
+    forEach(document.querySelectorAll('.freeLook'), (i, pane) => {
+      let id = pane.id.split('_')[1]
+
+      document.querySelector(`#drawSomethingOpener_${id}`).onclick = (e) => {
+        e.preventDefault()
+
+        encodee = id
+
+        let holder = document.querySelector(`#drawSomethingHolder_${id}`)
+        let doOpen = holder.classList.contains('hidden')
+
+        forEach(document.querySelectorAll('.drawSomethingHolder'), (i, d) => {
+          d.classList.add('hidden')
+          forEach(d.querySelectorAll(':scope .lookCell'), (i, cell) => {
+            cell.classList.remove(...colors)
+          })
+        })
+
+        forEach(document.querySelectorAll('.drawSomethingOpener'), (i, o) => {
+          o.innerText = "draw something"
+        })
+
+
+        if (doOpen) {
+          e.target.innerText = "don't draw something"
+          holder.classList.remove('hidden')
+        }
+      }
+
+      forEach(pane.querySelectorAll(':scope .lookCell'), (i, cell) => {
+        cell.onmousedown = freeStartDrag
+        cell.onmousemove = freeMaybePaint
+        cell.ontouchstart = freeStartDrag
+
+        cell.ontouchmove = (e) => {
+          e.preventDefault()
+
+          let touch = e.touches[0]
+          let elem = document.elementFromPoint(touch.clientX, touch.clientY)
+
+          if (mouseDown && elem.classList.contains('lookCell')) {
+            if (painting) {
+              elem.classList.remove(...colors)
+              elem.classList.add(color)
+            } else {
+              elem.classList.remove(...colors)
+            }
+          }
+        }
+      })
+
+      freeShowColor({ value: color }, id)
+    })
+
+    document.onmouseup = (e) => {
+      mouseDown = false
+      if (encodee)
+        freeEncode(encodee)
+    }
+
+    document.ontouchend = (e) => {
+      mouseDown = false
+      if (encodee)
+        freeEncode(encodee)
+    }
+  }
+
+  freeInit()
+</script>
 
 @@ look
 <% form_action = "/looks" unless form_action %>
@@ -953,24 +1132,20 @@ __END__
       <p>Create an icon for your profile by painting in the 16x16 grid below. Or, <a href="/">skip this.</a> You can do it later from your profile page.</p>
     <% end %>
     <select onchange="showColor(this)" id="palette">
-      <% %w(red orange yellow green blue indigo violet gray black white).each do |c| %>
+      <% %w(red lightred darkred orange orangered darkorange yellow lightyellow gold green lightgreen darkgreen blue lightblue darkblue purple lightpurple darkpurple pink lightpink gray lightgray black brown lightbrown white).each do |c| %>
         <option value="<%= c %>"><%= c %></option>
       <% end %>
     </select>
-    <div id="colorCell">
+    <div id="colorCell" class="colorCell">
       <div class="lookCellHeight"></div>
     </div>
-    <span>
-      <label for="fill">fill</label>
-      <input type="checkbox" id="fill" />
-    </span>
   </div>
 <% end %>
 <div class="look noselect">
   <% (16 * 16).times do |i| %><div class="noselect lookCell <%= editable && editNow && (i.to_f / 16).floor.even? ? i.even? ? 'gray4' : 'gray5' : (i.even? ? 'gray5' : 'gray4') if editable && editNow %>"><div class="lookCellHeight noselect"></div></div><% end %>
 </div>
 <% if editable %>
-  <form id="lookForm" class="lookForm<%= " hidden" unless editNow %>" action="<%= form_action %>" method="<%= form_method %>">
+  <form id="lookForm" class="lookForm<%= " hidden" unless editNow %>" action="<%= form_action %><%= params[:r] ? "?r=#{params[:r]}" : '' %>" method="<%= form_method %>">
     <input type="hidden" name="look" />
     <input type="submit" value="save" />
   </form>
@@ -978,7 +1153,6 @@ __END__
 <script type="text/javascript">
   let editable = <%= editable %>
   let editNow = <%= editNow %>
-  let colors = ['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet', 'white', 'black', 'gray']
   let color = 'red'
   let painting = false
   let mouseDown = false
@@ -999,7 +1173,6 @@ __END__
       }
     })
 
-    // history.replaceState(null, null, `?l=${rep}`)
     document.querySelector("form.lookForm input[name='look']").value = rep
   }
 
@@ -1205,6 +1378,8 @@ __END__
   <% end %>
 </div>
 
+<%= erb :free_look_help %>
+
 <script type="text/javascript">
   const params = (new URL(document.location)).searchParams
   const sortParam = params.get('sort')
@@ -1349,7 +1524,7 @@ __END__
 
 @@ minilook
 <% width = '1em' unless width %>
-<a class="noStyle" href="/frens/<%= fren_id %>/look">
+<a class="noStyle" href="<%= url %>">
   <div style="display: inline-block;" class="minilookContainer">
     <input type="hidden" value="<%= look %>" />
     <div class="minilook" style="width: <%= width %>">
@@ -1360,8 +1535,6 @@ __END__
 
 @@ minilookhelp
 <script type="text/javascript">
-  let colors = ['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet', 'white', 'black', 'gray']
-
   const layoutMinilooks = (container) => {
     if (container) {
       let rep = container.querySelector(':scope input[type="hidden"]').value
@@ -1406,23 +1579,20 @@ __END__
 
 @@ mini
 <div class="qwel" id="qwel<%= qwel.id %>">
+  <div class="secondLine">
+    <a href="/qwels/<%= qwel.id %>"><%= qwel.name %></a> by <div class="inlineBlock"><a href="/frens/<%= qwel.fren.id %>"><%= qwel.fren.name %></a><% if qwel.fren.look %><%= erb :minilook, locals: {width: '16px', look: qwel.fren.look, url: "/frens/#{qwel.fren.id}/look"} %><% end %></div>
+  </div>
   <a class="qwelAnchor" id="q<%= qwel.id %>"></a>
   <input type="hidden" class="qwelRep" id="qwelRep<%= qwel.id %>" value="<%= qwel.rep %>" />
   <div onclick="togglePlay(<%= qwel.id %>)" class="qwelGrid" id="qwelGrid<%= qwel.id %>">
     <div class="playHint" id="playHint<%= qwel.id %>">tap to play</div>
   </div>
   <div class="secondLine">
-    <a href="/qwels/<%= qwel.id %>"><%= qwel.name %></a>
-    -
     <%= "#{qwel.length / 60000}:" + "#{(qwel.length / 1000) % 60}".rjust(2, '0') %>
     -
-    <a href="/frens/<%= qwel.fren.id %>"><%= qwel.fren.name %></a>
-    <% if qwel.fren.look %>
-      <%= erb :minilook, locals: {width: '16px', look: qwel.fren.look, fren_id: qwel.fren.id} %>
-    <% end %>
-    -
     <%= chron qwel.updated_at %>
-    -
+  </div>
+  <div class="secondLine">
     <span id="likes<%= qwel.id %>">
       <%= erb :like_info, locals: {qwel: qwel} %>
     </span>
@@ -1436,7 +1606,7 @@ __END__
     <div class="secondLine">
       remixed from <a href="/qwels/<%= qwel.remixed_from.id %>"><%= qwel.remixed_from.name %></a> by <a href="/frens/<%= qwel.remixed_from.fren.id %>"><%= qwel.remixed_from.fren.name %></a>
       <% if qwel.remixed_from.fren.look %>
-        <%= erb :minilook, locals: {width: '16px', look: qwel.remixed_from.fren.look, fren_id: qwel.remixed_from.fren.id} %>
+        <%= erb :minilook, locals: {width: '16px', look: qwel.remixed_from.fren.look, url: "/frens/#{qwel.remixed_from.fren.id}/look"} %>
       <% end %>
     </div>
   <% end %>
@@ -1447,6 +1617,10 @@ __END__
         <form class="commentForm" id="commentForm<%= qwel.id %>" autocomplete="off" method="post" action="/qwels/<%= qwel.id %>/comments<%= "?#{request.query_string}" unless request.query_string.empty? %>">
           <input name="fren_id" type="hidden" value=<%= current_fren.id %> />
           <input style="margin-top: 1em;" name="body" class="commentInput" type="text" form="commentForm<%= qwel.id %>" id="commentInput<%= qwel.id %>" placeholder="add a comment" />
+          <a id="drawSomethingOpener_qwel-<%= qwel.id %>" href="#" class="drawSomethingOpener">draw something</a>
+          <div id="drawSomethingHolder_qwel-<%= qwel.id %>" class="drawSomethingHolder hidden">
+            <%= erb :free_look, locals: {ref_id: "qwel-#{qwel.id}"} %>
+          </div>
           <input class="commentButton" id="submitComment<%= qwel.id %>" type="submit" disabled value="post comment">
         </form>
       </div>
@@ -1461,7 +1635,11 @@ __END__
 
 @@ comment
 <li class="comment">
-  <div class="commentBody"><%= comment.body %></div>
+  <div class="commentBody">
+    <% if comment.look %>
+      <%= erb :minilook, locals: {width: '8em', look: comment.look, url: "#"} %>
+    <% end %>
+    <%= comment.body %></div>
   <div class="commentInfo">
     <%= comment.fren.name %>
     <% if comment.fren.look %>
@@ -1487,8 +1665,9 @@ __END__
     let form = e.target
     let qwelId = parseInt(form.id.slice(11))
     let input = document.querySelector(`#commentInput${qwelId}`)
+    let look = document.querySelector(`#freeLookInput_qwel-${qwelId}`).value
 
-    if (input.value.length === 0)
+    if (input.value.length === 0 && look.length === 0)
       return false
 
     let url = form.action
@@ -1509,6 +1688,12 @@ __END__
         document.querySelector(`#comments${qwelId}`).insertAdjacentHTML('afterbegin', data.commentHtml)
         let ml = document.querySelector(`#comments${qwelId}`).firstChild.querySelector('.minilookContainer')
         layoutMinilooks(ml)
+        document.querySelector(`#drawSomethingOpener_qwel-${qwelId}`).innerText = 'draw something'
+        let h = document.querySelector(`#drawSomethingHolder_qwel-${qwelId}`)
+        h.classList.add('hidden')
+        forEach(h.querySelectorAll(':scope .lookCell'), (i, c) => {
+          c.classList.remove(...colors)
+        })
       } else {
         console.error("BAD: ", this.status, this.responseText)
       }
@@ -1516,7 +1701,8 @@ __END__
 
     let bag = {
       fren_id: frenId,
-      body: body
+      body: body,
+      look: look
     }
 
     xhr.send(JSON.stringify(bag));
@@ -1625,7 +1811,7 @@ __END__
   forEach(document.querySelectorAll('.commentInput'), (index, input) => {
     input.onkeyup = (e) => {
       let id = parseInt(e.target.id.slice(12))
-      document.querySelector(`#submitComment${id}`).disabled = e.target.value.length === 0
+      document.querySelector(`#submitComment${id}`).disabled = e.target.value.length === 0 && document.querySelector(`#freeLookInput_qwel-${id}`).value.length === 0
     }
   })
 </script>
