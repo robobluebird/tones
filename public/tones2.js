@@ -1332,6 +1332,7 @@ const generatePhraseBuffers = (specificPhrase) => {
 
           carryover = 0
 
+          // handle the "carryover" of completing a full wave regardless of note length or space left in "subbuffer"
           while (waveIndex < samplesPerWave) {
             let valueL = someArrayL[bufferPointer + localIndex] || 0.0
             let valueR = someArrayR[bufferPointer + localIndex] || 0.0

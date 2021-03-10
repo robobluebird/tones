@@ -24,7 +24,8 @@ helpers do
       "Password and confirmation don't match.",
       'That name is taken.',
       'Only alphanumerics, dashes ("-"), or underscores ("_") for name please.',
-      'Please limit name to 32 characters or less'
+      'Please limit name to 32 characters or less',
+      'Why submit emptiness? :('
     ][code.to_i]
   end
 
@@ -142,6 +143,10 @@ helpers do
     @page_count ||= [(db.execute("select count(id) from qwels").first.first.to_f / page_size).ceil, 1].max
   end
 
+  def poast_page_count
+    @poast_page_count ||= [(db.execute("select count(id) from poasts where poast_id is null").first.first.to_f / page_size).ceil, 1].max
+  end
+
   def sort
     @sort ||= params[:sort].to_i
   end
@@ -174,11 +179,11 @@ helpers do
 
   def get_poasts parent_id = nil, id = nil
     query = if parent_id
-              'select * from poasts where poast_id = ? order by created_at asc'
+              "select * from poasts where poast_id = ? order by created_at asc limit #{page_size * (page - 1)}, #{page_size}"
             elsif id
               'select * from poasts where id = ? limit 1'
             else
-              'select * from poasts where poast_id is null order by created_at desc'
+              "select * from poasts where poast_id is null order by created_at desc limit #{page_size * (page - 1)}, #{page_size}"
             end
 
     db.execute(query, parent_id || id).map do |p|
@@ -257,8 +262,10 @@ class Poast
       parsed.unshift [:l, f] unless f.empty?
       parsed.push [:l, l] unless l.empty?
       parsed
-    else
+    elsif parts.length > 0
       [[:l, parts.first.strip]]
+    else
+      []
     end
   end
 end
@@ -566,8 +573,8 @@ get '/qwels/:qwel_id' do
 end
 
 post '/qwels' do
-  unless params[:name].to_s.length > 0 && params[:rep].to_s.length > 0 &&
-         params[:length].is_a?(Numeric) && params[:fren_id].is_a?(Numeric)
+  unless params[:name].strip.length > 0 && params[:rep].strip.length > 0 &&
+         params[:length].is_a?(Numeric) && current_fren && current_fren.id == params[:fren_id].to_i
     halt 500
   end
 
@@ -700,11 +707,12 @@ end
 
 post '/poasts' do
   if current_fren && current_fren.id == params[:fren_id].to_i
-    if params[:body].strip.length > 0
-      db.execute 'insert into poasts (title, body, fren_id, created_at) values (?, ?, ?, ?)', [params[:title].strip, params[:body].strip, params[:fren_id], Time.now.utc.to_s]
+    if params[:body].strip.length > 0 || params[:look].strip.length > 0
+      db.execute 'insert into poasts (title, body, look, fren_id, created_at) values (?, ?, ?, ?, ?)', [params[:title].strip, params[:body].strip, params[:look].strip, params[:fren_id], Time.now.utc.to_s]
 
       redirect to("/poasts")
     else
+      redirect to("/poasts?e=9")
     end
   else
     401
@@ -714,20 +722,22 @@ end
 get '/poasts/:poast_id' do
 end
 
-get '/poasts/:post_id/new' do
+get '/poasts/:poast_id/new' do
 end
 
 post '/poasts/:poast_id/poasts' do
-  unless params[:body] &&
-         params[:body].strip.length > 0 &&
-         params[:poast_id].to_i > 0  &&
+  unless (
+           (params[:body] && params[:body].strip.length > 0) ||
+           (params[:look] && params[:look].strip.length > 0)
+         ) &&
+         params[:poast_id].to_i > 0 &&
          params[:fren_id] &&
          current_fren &&
          current_fren.id == params[:fren_id].to_i
     halt 400
   end
   
-  db.execute 'insert into poasts (body, fren_id, poast_id, created_at) values (?, ?, ?, ?)', [params[:body], params[:fren_id], params[:poast_id], Time.now.utc.to_s]
+  db.execute 'insert into poasts (body, look, fren_id, poast_id, created_at) values (?, ?, ?, ?, ?)', [params[:body].strip, params[:look].strip,  params[:fren_id], params[:poast_id], Time.now.utc.to_s]
 
   if xhr?
     p = get_poasts(nil, db.last_insert_row_id).first
@@ -784,66 +794,117 @@ __END__
 </html>
 
 @@ poasts
-<% if current_fren %>
-  <div class="newPoast poast">
-    <div><b>make a new poast of power</b></div>
-    <form action="/poasts" method="post">
-      <div class="smolTopAndBottomMargin">
-        <input class="fullWidth" type="text" name="title" placeholder="title of new poast" />
-      </div>
-      <div class="smolTopAndBottomMargin">
-        <textarea id="area0" name="body" placeholder="type a new poast"></textarea>
-      </div>
-      <input type="hidden" name="fren_id" value=<%= current_fren.id %> />
-      <input disabled type="submit" id="submit0" />
-    </form>
-  </div>
-<% end %>
-<% if @poasts.empty? %>
-  <div class="poast">
-    nothing to see here!
-  </div>
-<% end %>
-<% @poasts.each do |p| %>
-  <div class="poast">
-    <div class="body">
-      <% if p.title %>
-        <div class="title">
-          <%= p.title %>
+<div>
+  <% if current_fren %>
+    <div class="newPoast poast">
+      <div><b>make a new poast of power</b></div>
+      <form action="/poasts" method="post">
+        <div class="smolTopAndBottomMargin">
+          <input class="fullWidth" type="text" name="title" placeholder="title of new poast" />
         </div>
-      <% end %>
-      <div class="text" id="text<%= p.id %>">
-        <% p.parsed.each do |bp| %><% if bp.first == :q %><div class="quote"><%= bp.last %></div><% else %><span><%= bp.last %></span><% end %>
-        <% end %>
-      </div>
-      <div class="commentInfo">
-        <%= p.fren.name %>
-        <% if p.fren.look %>
-          <%= erb :minilook, locals: {width: '16px', look: p.fren.look, url: "/frens/#{p.fren.id}/look"} %>
-        <% end %> - <%= chron p.created_at %><% if current_fren %> - <a class="doQuote" href="#" id="quote<%= p.id %>-<%= p.id %>">quote</a><% end %>
-      </div>
-    </div>
-    <div class="replies" id="replies<%= p.id %>">
-      <% p.replies.each do |r| %>
-        <%= erb :poastReply, locals: {parent_id: p.id, poast: r} %>
-      <% end %>
-    </div>
-    <% if current_fren %>
-      <div class="reply">
-        <div class="newPoast">
-          <form action="/poasts/<%= p.id %>/poasts" method="post" class="poastReplyForm" id="poastReplyForm<%= p.id %>">
-            <div>
-              <textarea id="area<%= p.id %>" name="body" placeholder="type a new poast"></textarea>
-            </div>
-            <input type="hidden" name="fren_id" value=<%= current_fren.id %> />
-            <input disabled type="submit" id="submit<%= p.id %>" />
-          </form>
+        <div class="smolTopAndBottomMargin">
+          <textarea id="area0" name="body" placeholder="type a new poast"></textarea>
         </div>
-      </div>
+        <input type="hidden" name="fren_id" value=<%= current_fren.id %> />
+        <div class="submitPoastHolder">
+          <a id="drawsomethingopener_poast-0" href="#" class="drawsomethingopener">draw something</a>
+          <div id="drawsomethingholder_poast-0" class="drawsomethingholder hidden">
+            <%= erb :free_look, locals: {formName: 'look', ref_id: "poast-0", submit_name: 'submit', input_name: 'area'} %>
+          </div>
+          <input disabled type="submit" id="submit0" />
+        </div>
+      </form>
+    </div>
+  <% end %>
+  <div class="paging">
+    <% if page && page > 1 %>
+      <a href="#" onclick="replaceOrAddSearchParam('page', 1); return false;">first</a>
+    <% end %>
+    <% if page && page > 1 %>
+      <a href="#" onclick="replaceOrAddSearchParam('page', <%= page - 1 %>); return false;">prev</a>
+    <% end %>
+    <% if page && poast_page_count %>
+      <span>page <%= page %> of <%= poast_page_count %></span>
+    <% end %> <% if page && poast_page_count && page < poast_page_count %>
+      <a href="#" onclick="replaceOrAddSearchParam('page', <%= page + 1 %>); return false;">next</a>
+    <% end %>
+    <% if page && page < poast_page_count %>
+      <a href="#" onclick="replaceOrAddSearchParam('page', <%= poast_page_count %>); return false;">last</a>
     <% end %>
   </div>
-<% end %>
+  <% if @poasts.empty? %>
+    <div class="poast">
+      nothing to see here!
+    </div>
+  <% end %>
+  <% @poasts.each do |p| %>
+    <div class="poast">
+      <div class="body">
+        <% if p.title %>
+          <div class="title">
+            <%= p.title %>
+          </div>
+        <% end %>
+        <% if p.look && p.look.length > 0 %>
+          <%= erb :minilook, locals: {width: '8em', look: p.look, url: "#"} %>
+        <% end %>
+        <div class="text" id="text<%= p.id %>">
+          <% p.parsed.each do |bp| %><% if bp.first == :q %><div class="quote"><%= bp.last %></div><% else %><span><%= bp.last %></span><% end %>
+          <% end %>
+        </div>
+        <div class="commentInfo">
+          <%= p.fren.name %>
+          <% if p.fren.look %>
+            <%= erb :minilook, locals: {width: '16px', look: p.fren.look, url: "/frens/#{p.fren.id}/look"} %>
+          <% end %> - <%= chron p.created_at %><% if current_fren %> - <a class="doQuote" data-frenName="<%= p.fren.name %>" href="#" id="quote<%= p.id %>-<%= p.id %>">quote</a><% end %>
+        </div>
+      </div>
+      <div class="replies" id="replies<%= p.id %>">
+        <% p.replies.each do |r| %>
+          <%= erb :poastReply, locals: {parent_id: p.id, poast: r} %>
+        <% end %>
+      </div>
+      <% if current_fren %>
+        <div class="reply">
+          <div class="newPoast">
+            <form action="/poasts/<%= p.id %>/poasts" method="post" class="poastReplyForm" id="poastReplyForm_poast-<%= p.id %>">
+              <div>
+                <textarea id="area<%= p.id %>" name="body" placeholder="type a new poast"></textarea>
+              </div>
+              <input type="hidden" name="fren_id" value=<%= current_fren.id %> />
+              <div class="submitPoastHolder">
+                <a id="drawSomethingOpener_poast-<%= p.id %>" href="#" class="drawSomethingOpener">draw something</a>
+                <div id="drawSomethingHolder_poast-<%= p.id %>" class="drawSomethingHolder hidden">
+                  <%= erb :free_look, locals: {ref_id: "poast-#{p.id}", submit_name: 'submit', input_name: 'area'} %>
+                </div>
+                <input disabled type="submit" id="submit<%= p.id %>" />
+              </div>
+            </form>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+  <div class="paging">
+    <% if page && page > 1 %>
+      <a href="#" onclick="replaceOrAddSearchParam('page', 1); return false;">first</a>
+    <% end %>
+    <% if page && page > 1 %>
+      <a href="#" onclick="replaceOrAddSearchParam('page', <%= page - 1 %>); return false;">prev</a>
+    <% end %>
+    <% if page && poast_page_count %>
+      <span>page <%= page %> of <%= poast_page_count %></span>
+    <% end %> <% if page && poast_page_count && page < poast_page_count %>
+      <a href="#" onclick="replaceOrAddSearchParam('page', <%= page + 1 %>); return false;">next</a>
+    <% end %>
+    <% if page && page < poast_page_count %>
+      <a href="#" onclick="replaceOrAddSearchParam('page', <%= poast_page_count %>); return false;">last</a>
+    <% end %>
+  </div>
+</div>
+<%= erb :free_look_help %>
 <%= erb :minilookhelp %>
+<%= erb :page_help %>
 <script type="text/javascript">
   const quoteClick = (e) => {
     e.preventDefault()
@@ -851,14 +912,15 @@ __END__
     let idStrParts = e.target.id.slice(5).split('-')
     let poastId = parseInt(idStrParts[0])
     let replyId = parseInt(idStrParts[1])
+    let name = e.target.getAttribute('data-frenName')
     let text = [...document.querySelector(`#text${replyId}`).children].map(c => {
       if (c.className === 'quote')
         return `[${c.innerText}]` 
       else
         return c.innerText
     }).join(' ')
-    let area = document.querySelector(`#poastReplyForm${poastId} textarea`)
-    area.value = area.value + "'''" + text + "'''\n"
+    let area = document.querySelector(`#poastReplyForm_poast-${poastId} textarea`)
+    area.value = area.value + "'''" + text + ' -' + name + "'''\n"
   }
 
   const postReply = (e) => {
@@ -866,9 +928,11 @@ __END__
 
     let form = e.target
     let input = form.querySelector(':scope textarea')
-    let poastId = parseInt(form.id.slice(14))
+    let refId = form.id.split('_')[1]
+    let poastId = parseInt(refId.split('-')[1])
+    let look = document.querySelector(`#freeLookInput_${refId}`).value
 
-    if (input.value.length === 0)
+    if (input.value.length === 0 && look.length === 0)
       return false
 
     let url = form.action
@@ -890,6 +954,17 @@ __END__
         document.querySelector(`#quote${poastId}-${data.id}`).onclick = quoteClick
         let ml = document.querySelector(`#reply${data.id} .minilookContainer`)
         layoutMinilooks(ml)
+
+        forEach(document.querySelectorAll('.drawSomethingHolder'), (i, d) => {
+          d.classList.add('hidden')
+          forEach(d.querySelectorAll(':scope .lookCell'), (i, cell) => {
+            cell.classList.remove(...colors)
+          })
+        })
+
+        forEach(document.querySelectorAll('.drawSomethingOpener'), (i, o) => {
+          o.innerText = "draw something"
+        })
       } else {
         console.error("BAD: ", this.status, this.responseText)
       }
@@ -897,7 +972,8 @@ __END__
 
     let bag = {
       fren_id: frenId,
-      body: body
+      body: body,
+      look: look
     }
 
     xhr.send(JSON.stringify(bag));
@@ -922,6 +998,9 @@ __END__
 
 @@ poastReply
 <div class="reply" id="reply<%= poast.id %>">
+  <% if poast.look && poast.look.length > 0 %>
+    <%= erb :minilook, locals: {width: '8em', look: poast.look, url: "#"} %>
+  <% end %>
   <div class="replyBody" id="text<%= poast.id %>">
     <% poast.parsed.each do |bp| %><% if bp.first == :q %><div class="quote"><%= bp.last %></div><% else %><span><%= bp.last %></span><% end %>
     <% end %>
@@ -930,7 +1009,7 @@ __END__
     <%= poast.fren.name %>
     <% if poast.fren.look %>
       <%= erb :minilook, locals: {width: '16px', look: poast.fren.look, url: "frens/{poast.fren.id}/look"} %>
-    <% end %> - <%= chron poast.created_at %><% if current_fren %> - <a class="doQuote" href="#" id="quote<%= parent_id %>-<%= poast.id %>">quote</a><% end %>
+    <% end %> - <%= chron poast.created_at %><% if current_fren %> - <a class="doQuote" data-frenName="<%= poast.fren.name %>" href="#" id="quote<%= parent_id %>-<%= poast.id %>">quote</a><% end %>
   </div>
 </div>
 
@@ -946,8 +1025,11 @@ __END__
 </div>
 
 @@ free_look
+<% formName = 'look' unless formName %>
 <div class="freeLookHolder">
-  <input type="hidden" id="freeLookInput_<%= ref_id %>" />
+  <input type="hidden" id="submitName_<%= ref_id %>" value="<%= submit_name %>" />
+  <input type="hidden" id="inputName_<%= ref_id %>" value="<%= input_name %>" />
+  <input name="<%= formName %>" type="hidden" id="freeLookInput_<%= ref_id %>" />
   <div class="lookTools">
     <select onchange="freeShowColor(this, '<%= ref_id %>')" class="palette">
       <% %w(red lightred darkred orange orangered darkorange yellow lightyellow gold green lightgreen darkgreen blue lightblue darkblue purple lightpurple darkpurple pink lightpink gray lightgray black brown lightbrown white).each do |c| %>
@@ -987,8 +1069,10 @@ __END__
     })
 
     let qid = id.split('-')[1]
+    let submitName = document.querySelector(`#submitName_${id}`).value
+    let inputName = document.querySelector(`#inputName_${id}`).value
 
-    document.querySelector(`#submitComment${qid}`).disabled = rep.length === 0 && document.querySelector(`#commentInput${qid}`).value.length === 0
+    document.querySelector(`#${submitName}${qid}`).disabled = rep.length === 0 && document.querySelector(`#${inputName}${qid}`).value.length === 0
 
     document.querySelector(`#freeLookInput_${id}`).value = rep
   }
@@ -1011,7 +1095,6 @@ __END__
   }
 
   const freeShowColor = (e, id) => {
-    console.log(id)
     document.querySelector(`#colorCell_${id}`).classList.remove(...colors)
     document.querySelector(`#colorCell_${id}`).classList.add(e.value)
     color = e.value
@@ -1068,7 +1151,6 @@ __END__
         forEach(document.querySelectorAll('.drawSomethingOpener'), (i, o) => {
           o.innerText = "draw something"
         })
-
 
         if (doOpen) {
           e.target.innerText = "don't draw something"
@@ -1379,7 +1461,9 @@ __END__
 </div>
 
 <%= erb :free_look_help %>
+<%= erb :page_help %>
 
+@@ page_help
 <script type="text/javascript">
   const params = (new URL(document.location)).searchParams
   const sortParam = params.get('sort')
@@ -1614,12 +1698,12 @@ __END__
     <a class="qwelAnchor2" id="m<%= qwel.id %>"></a>
     <% if current_fren %>
       <div class="commentFormHolder">
-        <form class="commentForm" id="commentForm<%= qwel.id %>" autocomplete="off" method="post" action="/qwels/<%= qwel.id %>/comments<%= "?#{request.query_string}" unless request.query_string.empty? %>">
+        <form class="commentForm" id="commentForm_qwel-<%= qwel.id %>" autocomplete="off" method="post" action="/qwels/<%= qwel.id %>/comments<%= "?#{request.query_string}" unless request.query_string.empty? %>">
           <input name="fren_id" type="hidden" value=<%= current_fren.id %> />
-          <input style="margin-top: 1em;" name="body" class="commentInput" type="text" form="commentForm<%= qwel.id %>" id="commentInput<%= qwel.id %>" placeholder="add a comment" />
+          <input style="margin-top: 1em;" name="body" class="commentInput" type="text" id="commentInput<%= qwel.id %>" placeholder="add a comment" />
           <a id="drawSomethingOpener_qwel-<%= qwel.id %>" href="#" class="drawSomethingOpener">draw something</a>
           <div id="drawSomethingHolder_qwel-<%= qwel.id %>" class="drawSomethingHolder hidden">
-            <%= erb :free_look, locals: {ref_id: "qwel-#{qwel.id}"} %>
+            <%= erb :free_look, locals: {ref_id: "qwel-#{qwel.id}", submit_name: 'submitComment', input_name: 'commentInput'} %>
           </div>
           <input class="commentButton" id="submitComment<%= qwel.id %>" type="submit" disabled value="post comment">
         </form>
@@ -1636,7 +1720,7 @@ __END__
 @@ comment
 <li class="comment">
   <div class="commentBody">
-    <% if comment.look %>
+    <% if comment.look && comment.look.length > 0 %>
       <%= erb :minilook, locals: {width: '8em', look: comment.look, url: "#"} %>
     <% end %>
     <%= comment.body %></div>
@@ -1663,7 +1747,8 @@ __END__
     e.preventDefault()
 
     let form = e.target
-    let qwelId = parseInt(form.id.slice(11))
+    let refId = form.id.split('_')[1]
+    let qwelId = parseInt(refId.split('-')[1])
     let input = document.querySelector(`#commentInput${qwelId}`)
     let look = document.querySelector(`#freeLookInput_qwel-${qwelId}`).value
 
@@ -1693,6 +1778,17 @@ __END__
         h.classList.add('hidden')
         forEach(h.querySelectorAll(':scope .lookCell'), (i, c) => {
           c.classList.remove(...colors)
+        })
+
+        forEach(document.querySelectorAll('.drawSomethingHolder'), (i, d) => {
+          d.classList.add('hidden')
+          forEach(d.querySelectorAll(':scope .lookCell'), (i, cell) => {
+            cell.classList.remove(...colors)
+          })
+        })
+
+        forEach(document.querySelectorAll('.drawSomethingOpener'), (i, o) => {
+          o.innerText = "draw something"
         })
       } else {
         console.error("BAD: ", this.status, this.responseText)

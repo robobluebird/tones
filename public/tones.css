@@ -3,7 +3,7 @@ html {
   font-size: 16px;
 }
 
-select, button, input, label, form {
+textarea, select, button, input, label, form {
   font-family: monospace;
   font-size: 16px;
 }
@@ -87,9 +87,6 @@ h1 {
 .lookCellHeight {
   padding-top: 100%;
   pointer-events: none;
-}
-
-.sortHolder, .paging {
 }
 
 .secondLine {
@@ -210,7 +207,7 @@ input.error {
 }
 
 .paging {
-  margin-top: 0.5em;
+  margin-top: 1em;
 }
 
 .paging.bottom {
@@ -238,6 +235,10 @@ ul {
   padding: 1em;
   position: relative;
   margin-top: 1em;
+}
+
+.submitPoastHolder {
+  text-align: right;
 }
 
 .newPost .body {
