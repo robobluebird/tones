@@ -11,6 +11,10 @@ use Rack::Session::Cookie, :key => 'rack.session',
                            :path => '/',
                            :secret => ENV.fetch('SESSION_SECRET') { SecureRandom.hex(64) }
 
+use Rack::Protection
+use Rack::Protection::AuthenticityToken
+use Rack::Protection::RemoteToken
+
 class String; def humanize; self.capitalize; end; end
 
 helpers do
@@ -48,7 +52,7 @@ helpers do
 
   def db
     @db ||= begin
-      db = SQLite3::Database.new "ql5.db"
+      db = SQLite3::Database.new "ql6.db"
 
       db.execute_batch <<-SQL
         create table if not exists looks (
@@ -799,6 +803,7 @@ __END__
     <div class="newPoast poast">
       <div><b>make a new poast of power</b></div>
       <form action="/poasts" method="post">
+        <input type="hidden" name="authenticity_token" value="<%= env['rack.session'][:csrf] %>" />
         <div class="smolTopAndBottomMargin">
           <input class="fullWidth" type="text" name="title" placeholder="title of new poast" />
         </div>
@@ -868,6 +873,7 @@ __END__
         <div class="reply">
           <div class="newPoast">
             <form action="/poasts/<%= p.id %>/poasts" method="post" class="poastReplyForm" id="poastReplyForm_poast-<%= p.id %>">
+              <input type="hidden" name="authenticity_token" value="<%= env['rack.session'][:csrf] %>" />
               <div>
                 <textarea id="area<%= p.id %>" name="body" placeholder="type a new poast"></textarea>
               </div>
@@ -931,6 +937,7 @@ __END__
     let refId = form.id.split('_')[1]
     let poastId = parseInt(refId.split('-')[1])
     let look = document.querySelector(`#freeLookInput_${refId}`).value
+    let token = form.querySelector(":scope input[name='authenticity_token']").value
 
     if (input.value.length === 0 && look.length === 0)
       return false
@@ -943,6 +950,7 @@ __END__
     let xhr = new XMLHttpRequest();
     xhr.open(method, url, true);
     xhr.setRequestHeader('Content-Type', 'application/json')
+    xhr.setRequestHeader('X-CSRF-Token', token)
     xhr.onreadystatechange = function() {
       if (this.readyState != 4) return
       if (this.status == 200) {
@@ -1228,6 +1236,7 @@ __END__
 </div>
 <% if editable %>
   <form id="lookForm" class="lookForm<%= " hidden" unless editNow %>" action="<%= form_action %><%= params[:r] ? "?r=#{params[:r]}" : '' %>" method="<%= form_method %>">
+    <input type="hidden" name="authenticity_token" value="<%= env['rack.session'][:csrf] %>" />
     <input type="hidden" name="look" />
     <input type="submit" value="save" />
   </form>
@@ -1551,6 +1560,7 @@ __END__
     <span class="error"><%= error_for params[:e] %></span>
     <div class="contentPane" id="contentSignIn">
       <form autocomplete="off" action="/login" method="post" autocomplete="off">
+        <input type="hidden" name="authenticity_token" value="<%= env['rack.session'][:csrf] %>" />
         <input class="fullWidth" type="text" name="name" placeholder="name" value="<%= params[:name] %>" /> 
         <br />
         <input class="fullWidth" type="password" name="password" placeholder="password" /> 
@@ -1560,6 +1570,7 @@ __END__
     </div>
     <div style="display: none;" class="contentPane" id="contentSignUp">
       <form action="/frens" method="post" autocomplete="off">
+        <input type="hidden" name="authenticity_token" value="<%= env['rack.session'][:csrf] %>" />
         <input class="fullWidth" type="text" name="name" placeholder='name (letters, numbers, "-", "_")' value="<%= params[:name] %>" /> 
         <br />
         <input class="fullWidth" type="password" name="password" placeholder="password" /> 
@@ -1656,6 +1667,7 @@ __END__
 <%= "#{qwel.likes.count} #{qwel.likes.count == 1 ? 'like' : 'likes'}" %>
 <% if current_fren %>
   <form class="likeForm" id="likeForm<%= qwel.id %>" autocomplete="off" style="display: inline;"  method="post" action="/qwels/<%= qwel.id %>/<%= current_fren && qwel.liked_by?(current_fren) ? "delete_likes" : "likes" %><%= "?#{request.query_string}" unless request.query_string.empty? %>">
+    <input type="hidden" name="authenticity_token" value="<%= env['rack.session'][:csrf] %>" />
     <input name="fren_id" type="hidden" value=<%= current_fren.id if current_fren %> />
     <input type="submit" value=<%= current_fren && qwel.liked_by?(current_fren) ? "unlike" : "like" %> />
   </form>
@@ -1682,6 +1694,7 @@ __END__
     </span>
     <% if current_fren && qwel.fren_id != current_fren.id && !qwel.remixed_by?(current_fren)  %>
       <form method="POST" action="/qwels/<%= qwel.id %>/remix">
+        <input type="hidden" name="authenticity_token" value="<%= env['rack.session'][:csrf] %>" />
         <input type="submit" value="remix" />
       </form>
     <% end %>
@@ -1699,6 +1712,7 @@ __END__
     <% if current_fren %>
       <div class="commentFormHolder">
         <form class="commentForm" id="commentForm_qwel-<%= qwel.id %>" autocomplete="off" method="post" action="/qwels/<%= qwel.id %>/comments<%= "?#{request.query_string}" unless request.query_string.empty? %>">
+          <input type="hidden" name="authenticity_token" value="<%= env['rack.session'][:csrf] %>" />
           <input name="fren_id" type="hidden" value=<%= current_fren.id %> />
           <input style="margin-top: 1em;" name="body" class="commentInput" type="text" id="commentInput<%= qwel.id %>" placeholder="add a comment" />
           <a id="drawSomethingOpener_qwel-<%= qwel.id %>" href="#" class="drawSomethingOpener">draw something</a>
@@ -1751,6 +1765,7 @@ __END__
     let qwelId = parseInt(refId.split('-')[1])
     let input = document.querySelector(`#commentInput${qwelId}`)
     let look = document.querySelector(`#freeLookInput_qwel-${qwelId}`).value
+    let token = form.querySelector(":scope input[name='authenticity_token']").value
 
     if (input.value.length === 0 && look.length === 0)
       return false
@@ -1763,6 +1778,7 @@ __END__
     let xhr = new XMLHttpRequest();
     xhr.open(method, url, true);
     xhr.setRequestHeader('Content-Type', 'application/json')
+    xhr.setRequestHeader('X-CSRF-Token', token)
     xhr.onreadystatechange = function() {
       if (this.readyState != 4) return
       if (this.status == 200) {
@@ -1812,9 +1828,11 @@ __END__
     let method = form.method
     let frenId = form.querySelector(':scope input[name="fren_id"]').value
     let qwelId = parseInt(form.id.slice(8))
+    let token = form.querySelector(":scope input[name='authenticity_token']").value
     let xhr = new XMLHttpRequest();
     xhr.open(method, url, true);
     xhr.setRequestHeader('Content-Type', 'application/json')
+    xhr.setRequestHeader('X-CSRF-Token', token)
     xhr.onreadystatechange = function() {
       if (this.readyState != 4) return
       if (this.status == 200) {

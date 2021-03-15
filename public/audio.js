@@ -108,11 +108,12 @@ const parse = (rep, id) => {
         grid.noteLength = parseFloat([0.25, 0.5, 0.75, 1.0][parseInt(pattern[2])])
         grid.volume     = parseFloat([0.25, 0.5, 0.75, 1.0][parseInt(pattern[3])])
         grid.pan = parseInt(pattern[4])
+        grid.reverb = parseInt(pattern[5])
         grid.notes = generateNotes(grid.octave, phrase.rootNote)
         grid.pattern = []
 
-        if (pattern.length > 5) {
-          pattern.slice(5)
+        if (pattern.length > 6) {
+          pattern.slice(6)
           .split('')
           .reduce((result, value, i, array) => {
             if (i % 2 === 0)
@@ -158,24 +159,78 @@ const generatePhraseBuffers = (data) => {
     let someArrayR = Array(bufferSize).fill(0.0)
 
     phrase.grids.forEach((gridData, gridIndex) => {
+      let tempL, tempR, reverbOffset, delay, decay
+
+      if (gridData.reverb > 0) {
+        tempL = Array(bufferSize).fill(0.0)
+        tempR = Array(bufferSize).fill(0.0)
+        
+        switch (gridData.reverb) {
+          case 1:
+            delay = 0.1
+            decay = 0.25
+            break;
+          case 2:
+            delay = 0.1
+            decay = 0.5
+            break;
+          case 3:
+            delay = 0.1
+            decay = 0.75
+            break;
+          default:
+            delay = 0.1
+            decay = 0.25
+        }
+
+        reverbOffset = Math.floor(sampleRate * delay)
+      }
+
       gridData.pattern.forEach((noteIndex, beatIndex) => {
         if (noteIndex !== null && noteIndex !== undefined) {
           let bufferPointer = beatIndex * subBufferSize // start of the "16th" subsection
-          let localIndex = beatIndex === lastIndex + 1 ? carryover : 0
+          let localIndex = 0
+          let rampIn = true
+          let rampOut = true
           let waveIndex = 0
           let lengthOffset = (1.0 - gridData.noteLength) * subBufferSize
+
+          if (beatIndex === lastIndex + 1) {
+            localIndex = carryover
+            rampIn = false
+          }
+
+          if (gridData.pattern[beatIndex + 1] !== undefined && gridData.pattern[beatIndex + 1] !== null) {
+            rampOut = false
+          }
 
           freq = gridData.notes[noteIndex]
           samplesPerWave = parseInt(sampleRate / freq)
 
           while (localIndex + lengthOffset < subBufferSize) {
-            let valueL = someArrayL[bufferPointer + localIndex] || 0.0
-            let valueR = someArrayR[bufferPointer + localIndex] || 0.0
+            let valueL, valueR
+
+            if (tempL) {
+              valueL = tempL[bufferPointer + localIndex] || 0.0
+              valueR = tempR[bufferPointer + localIndex] || 0.0
+            } else {
+              valueL = someArrayL[bufferPointer + localIndex] || 0.0
+              valueR = someArrayR[bufferPointer + localIndex] || 0.0
+            }
+
             let sampleL = waveFunction(gridData.tone)(waveIndex, samplesPerWave)
             let sampleR = waveFunction(gridData.tone)(waveIndex, samplesPerWave)
 
             sampleL = sampleL * gridData.volume * (1 - gridData.pan / 4)
             sampleR = sampleR * gridData.volume * (gridData.pan / 4)
+
+            if (rampIn && localIndex < 220) {
+              sampleL = sampleL * (localIndex / 220)
+              sampleR = sampleR * (localIndex / 220)
+            } else if (rampOut && subBufferSize - (localIndex + lengthOffset) <= 220) {
+              sampleL = sampleL * ((subBufferSize - (localIndex + lengthOffset)) / 220)
+              sampleR = sampleR * ((subBufferSize - (localIndex + lengthOffset)) / 220)
+            }
 
             valueL += sampleL
             valueR += sampleR
@@ -190,8 +245,13 @@ const generatePhraseBuffers = (data) => {
             else if (valueR < -1.0)
               valueR = -1.0
 
-            someArrayL[bufferPointer + localIndex] = valueL
-            someArrayR[bufferPointer + localIndex] = valueR
+            if (tempL) {
+              tempL[bufferPointer + localIndex] = valueL
+              tempR[bufferPointer + localIndex] = valueR
+            } else {
+              someArrayL[bufferPointer + localIndex] = valueL
+              someArrayR[bufferPointer + localIndex] = valueR
+            }
 
             waveIndex++
             localIndex++
@@ -202,39 +262,102 @@ const generatePhraseBuffers = (data) => {
 
           carryover = 0
 
-          while (waveIndex < samplesPerWave) {
-            let valueL = someArrayL[bufferPointer + localIndex] || 0.0
-            let valueR = someArrayR[bufferPointer + localIndex] || 0.0
-            let sampleL = waveFunction(gridData.tone)(waveIndex, samplesPerWave)
-            let sampleR = waveFunction(gridData.tone)(waveIndex, samplesPerWave)
+          if (!rampOut) {
+            while (waveIndex < samplesPerWave) {
+              let valueL, valueR
 
-            sampleL = sampleL * gridData.volume * (1 - gridData.pan / 4)
-            sampleR = sampleR * gridData.volume * (gridData.pan / 4)
+              if (tempL) {
+                valueL = tempL[bufferPointer + localIndex] || 0.0
+                valueR = tempR[bufferPointer + localIndex] || 0.0
+              } else {
+                valueL = someArrayL[bufferPointer + localIndex] || 0.0
+                valueR = someArrayR[bufferPointer + localIndex] || 0.0
+              }
 
-            valueL += sampleL
-            valueR += sampleR
+              let sampleL = waveFunction(gridData.tone)(waveIndex, samplesPerWave)
+              let sampleR = waveFunction(gridData.tone)(waveIndex, samplesPerWave)
 
-            if (valueL > 1.0)
-              valueL = 1.0
-            else if (valueL < -1.0)
-              valueL = -1.0
+              sampleL = sampleL * gridData.volume * (1 - gridData.pan / 4)
+              sampleR = sampleR * gridData.volume * (gridData.pan / 4)
 
-            if (valueR > 1.0)
-              valueR = 1.0
-            else if (valueR < -1.0)
-              valueR = -1.0
+              valueL += sampleL
+              valueR += sampleR
 
-            someArrayL[bufferPointer + localIndex] = valueL
-            someArrayR[bufferPointer + localIndex] = valueR
+              if (valueL > 1.0)
+                valueL = 1.0
+              else if (valueL < -1.0)
+                valueL = -1.0
 
-            localIndex++
-            waveIndex++
-            carryover++
+              if (valueR > 1.0)
+                valueR = 1.0
+              else if (valueR < -1.0)
+                valueR = -1.0
+
+              if (tempL) {
+                tempL[bufferPointer + localIndex] = valueL
+                tempR[bufferPointer + localIndex] = valueR
+              } else {
+                someArrayL[bufferPointer + localIndex] = valueL
+                someArrayR[bufferPointer + localIndex] = valueR
+              }
+
+              localIndex++
+              waveIndex++
+              carryover++
+            }
           }
 
           lastIndex = beatIndex
         }
       })
+
+      if (tempL) {
+        for (let n = 0; n < tempL.length; n++) {
+          if (n + reverbOffset < tempL.length) {
+            let vL = tempL[n + reverbOffset]
+            let vR = tempR[n + reverbOffset]
+
+            vL += (tempL[n] * decay)
+            vR += (tempR[n] * decay)
+
+            if (vL > 1.0) {
+              vL = 1.0
+            } else if (vL < -1.0) {
+              vL = -1.0
+            }
+
+            if (vR > 1.0) {
+              vR = 1.0
+            } else if (vR < -1.0) {
+              vR = -1.0
+            }
+
+            tempL[n + reverbOffset] = vL
+            tempR[n + reverbOffset] = vR
+          }
+          
+          let vL = someArrayL[n]
+          let vR = someArrayR[n]
+
+          vL += tempL[n]
+          vR += tempR[n]
+
+          if (vL > 1.0) {
+            vL = 1.0
+          } else if (vL < -1.0) {
+            vL = -1.0
+          }
+
+          if (vR > 1.0) {
+            vR = 1.0
+          } else if (vR < -1.0) {
+            vR = -1.0
+          }
+
+          someArrayL[n] = vL
+          someArrayR[n] = vR
+        }
+      }
 
       bufferSizes[pIndex] = someArrayL.length
 

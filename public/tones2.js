@@ -26,6 +26,7 @@ let octaves
 let volumes
 let pans
 let noteLengths
+let reverbs
 let sequence
 let columns
 let playing = false
@@ -212,6 +213,21 @@ const changeNoteLength = (e) => {
   setEncodes()
 }
 
+const changeReverb = (e) => {
+  const indexStr = e.target.id.slice(6)
+  const indicies = indexStr.split('-').map(n => parseInt(n))
+  const pIndex = indicies[0]
+  const index = indicies[1]
+
+  reverbs[pIndex][index] = parseInt(e.target.value)
+
+  generateNotes(pIndex, index)
+  paintAll()
+  generateSound(pIndex)
+  generateSampleTones()
+  setEncodes()
+}
+
 const changeRoot = (e) => {
   const note = e.target.value
   const pIndex = parseInt(e.target.id.slice(3))
@@ -295,6 +311,7 @@ const deleteGrid = (e) => {
   tones[pIndex].splice(index, 1)
   octaves[pIndex].splice(index, 1)
   noteLengths[pIndex].splice(index, 1)
+  reverbs[pIndex].splice(index, 1)
   volumes[pIndex].splice(index, 1)
   pans[pIndex].splice(index, 1)
   notes[pIndex].splice(index, 1)
@@ -310,6 +327,7 @@ const deleteGrid = (e) => {
     let ntl = cont.querySelector('select.notelength')
     let vol = cont.querySelector('select.volume')
     let pan = cont.querySelector('select.pan')
+    let rev = cont.querySelector('select.reverb')
 
     cont.id = `container${pIndex}-${index}`
     tab.id = `grid${pIndex}-${index}`
@@ -319,6 +337,7 @@ const deleteGrid = (e) => {
     ntl.id = `notelength${pIndex}-${index}`
     vol.id = `volume${pIndex}-${index}`
     pan.id = `pan${pIndex}-${index}`
+    rev.id = `reverb${pIndex}-${index}`
 
     index++
   }
@@ -415,6 +434,7 @@ const createPhrase = () => {
   rootNotes[pIndex] = 'C'
   octaves[pIndex] = []
   noteLengths[pIndex] = []
+  reverbs[pIndex] = []
   volumes[pIndex] = []
   pans[pIndex] = []
   notes[pIndex] = []
@@ -438,6 +458,7 @@ const createGrid = (e) => {
   let add = phraseContainer.querySelector(`#add${pIndex}`)
   let vol = gridContainer.querySelector('select.volume')
   let pan = gridContainer.querySelector('select.pan')
+  let rev = gridContainer.querySelector('select.reverb')
 
   gridContainer.classList.remove('proto')
   gridContainer.id = `container${pIndex}-${gridIndex}`
@@ -483,6 +504,8 @@ const createGrid = (e) => {
   vol.onchange = changeVolume
   pan.id = `pan${pIndex}-${gridIndex}`
   pan.onchange = changePan
+  rev.id = `reverb${pIndex}-${gridIndex}`
+  rev.onchange = changeReverb
 
   phraseContainer.insertBefore(gridContainer, add)
 
@@ -490,6 +513,7 @@ const createGrid = (e) => {
   tones[pIndex][gridIndex] = 1
   octaves[pIndex][gridIndex] = 3
   noteLengths[pIndex][gridIndex] = 1.0
+  reverbs[pIndex][gridIndex] = 0
   volumes[pIndex][gridIndex] = 1.0
   pans[pIndex][gridIndex] = 2
   generateNotes(pIndex, gridIndex)
@@ -498,6 +522,7 @@ const createGrid = (e) => {
   setRoots()
   setOctaves()
   setNoteLengths()
+  setReverbs()
   assignCellClicks()
   generateSound(pIndex)
   generateSampleTones()
@@ -666,6 +691,7 @@ const createGrids = () => {
       let ntl = gridContainer.querySelector('select.notelength')
       let vol = gridContainer.querySelector('select.volume')
       let pan = gridContainer.querySelector('select.pan')
+      let rev = gridContainer.querySelector('select.reverb')
 
       gridContainer.classList.remove('proto')
       gridContainer.id = `container${pIndex}-${gridIndex}`
@@ -681,6 +707,8 @@ const createGrids = () => {
       vol.onchange = changeVolume
       pan.id = `pan${pIndex}-${gridIndex}`
       pan.onchange = changePan
+      rev.id = `reverb${pIndex}-${gridIndex}`
+      rev.onchange = changeReverb
 
       phraseContainer.appendChild(gridContainer)
     })
@@ -727,6 +755,15 @@ const setNoteLengths = () => {
     noteLengths[pIndex].forEach((noteLength, index) => {
       let n = document.querySelector(`#notelength${pIndex}-${index}`)
       n.value = noteLength.toString()
+    })
+  })
+}
+
+const setReverbs = () => {
+  pData.forEach((phrase, pIndex) => {
+    reverbs[pIndex].forEach((verb, index) => {
+      let r = document.querySelector(`#reverb${pIndex}-${index}`)
+      r.value = verb
     })
   })
 }
@@ -809,6 +846,7 @@ const init = () => {
   rootNotes = []
   octaves = []
   noteLengths = []
+  reverbs = []
   volumes = []
   pans = []
   sequence = []
@@ -844,6 +882,7 @@ const init = () => {
       tones[pIndex] = []
       octaves[pIndex] = []
       noteLengths[pIndex] = []
+      reverbs[pIndex] = []
       volumes[pIndex] = []
       pans[pIndex] = []
       notes[pIndex] = []
@@ -852,21 +891,23 @@ const init = () => {
         pData[pIndex][index] = []
 
         if (!!pattern) {
-          const tone = parseInt(pattern[0])
-          const octave = parseInt(pattern[1])
+          const tone       = parseInt(pattern[0])
+          const octave     = parseInt(pattern[1])
           const noteLength = parseFloat([0.25, 0.5, 0.75, 1.0][parseInt(pattern[2])])
           const volume     = parseFloat([0.25, 0.5, 0.75, 1.0][parseInt(pattern[3])])
-          const pan = parseInt(pattern[4])
+          const pan        = parseInt(pattern[4])
+          const reverb     = parseInt(pattern[5])
 
           tones[pIndex][index] = tone
           octaves[pIndex][index] = octave
           noteLengths[pIndex][index] = noteLength
+          reverbs[pIndex][index] = reverb
           volumes[pIndex][index] = volume
           pans[pIndex][index] = pan
           generateNotes(pIndex, index)
 
-          if (pattern.length > 5) {
-            pattern.slice(5)
+          if (pattern.length > 6) {
+            pattern.slice(6)
             .split('')
             .reduce((result, value, i, array) => {
               if (i % 2 === 0)
@@ -891,6 +932,7 @@ const init = () => {
     rootNotes[0] = 'C'
     octaves[0] = [3]
     noteLengths[0] = [1.0]
+    reverbs[0] = [0]
     volumes[0] = [1.0]
     pans[0] = [2]
     notes[0] = []
@@ -907,6 +949,7 @@ const init = () => {
   setPans()
   remakeSequenceSelects()
   setNoteLengths()
+  setReverbs()
   generateSampleTones()
   generateSound(null, true, false)
   gatherColumns2()
@@ -1066,6 +1109,7 @@ const encodePhrase = (pIndex) => {
     beatString = beatString.concat([0.25, 0.5, 0.75, 1.0].indexOf(noteLengths[pIndex][index]))
     beatString = beatString.concat([0.25, 0.5, 0.75, 1.0].indexOf(volumes[pIndex][index]))
     beatString = beatString.concat(pans[pIndex][index])
+    beatString = beatString.concat(reverbs[pIndex][index])
 
     data.forEach((noteIndex, index) => {
       if (noteIndex !== null && noteIndex !== undefined) {
@@ -1097,6 +1141,7 @@ const encodeAll = () => {
       beatString = beatString.concat([0.25, 0.5, 0.75, 1.0].indexOf(noteLengths[pIndex][index]))
       beatString = beatString.concat([0.25, 0.5, 0.75, 1.0].indexOf(volumes[pIndex][index]))
       beatString = beatString.concat(pans[pIndex][index])
+      beatString = beatString.concat(reverbs[pIndex][index])
 
       data.forEach((noteIndex, index) => {
         if (noteIndex !== null && noteIndex !== undefined) {
@@ -1206,6 +1251,14 @@ const generateSampleTones = () => {
           sampleL = sampleL * volumes[i][j] * (1 - pans[i][j] / 4)
           sampleR = sampleR * volumes[i][j] * (pans[i][j] / 4)
 
+          if (localIndex < 220) {
+            sampleL = sampleL * (localIndex / 220)
+            sampleR = sampleR * (localIndex / 220)
+          } else if (subBufferSize - (localIndex + lengthOffset) <= 220) {
+            sampleL = sampleL * ((subBufferSize - (localIndex + lengthOffset)) / 220)
+            sampleR = sampleR * ((subBufferSize - (localIndex + lengthOffset)) / 220)
+          }
+
           if (sampleL > 1.0)
             sampleL = 1.0
           else if (sampleL < -1.0)
@@ -1225,34 +1278,7 @@ const generateSampleTones = () => {
           if (waveIndex >= samplesPerWave) waveIndex = 0
         }
 
-        let carryover = 0
-
-        while (waveIndex < samplesPerWave) {
-          let sampleL = waveFunction(tones[i][j])(waveIndex, samplesPerWave)
-          let sampleR = waveFunction(tones[i][j])(waveIndex, samplesPerWave)
-
-          sampleL = sampleL * volumes[i][j] * (1 - pans[i][j] / 4)
-          sampleR = sampleR * volumes[i][j] * (pans[i][j] / 4)
-
-          if (sampleL > 1.0)
-            sampleL = 1.0
-          else if (sampleL < -1.0)
-            sampleL = -1.0
-
-          if (sampleR > 1.0)
-            sampleR = 1.0
-          else if (sampleR < -1.0)
-            sampleR = -1.0
-
-          someArrayL[localIndex] = sampleL
-          someArrayR[localIndex] = sampleR
-
-          localIndex++
-          waveIndex++
-          carryover++
-        }
-
-        let realBufferSize = subBufferSize + carryover
+        let realBufferSize = subBufferSize
         let buffer = audioCtx().createBuffer(2, realBufferSize, sampleRate)
         let bufferingL = buffer.getChannelData(0)
         let bufferingR = buffer.getChannelData(1)
@@ -1288,10 +1314,49 @@ const generatePhraseBuffers = (specificPhrase) => {
     let someArrayR = Array(bufferSize).fill(0.0)
 
     phrase.forEach((phraseData, gridIndex) => {
+      let tempL, tempR, reverbOffset, delay, decay
+
+      if (reverbs[pIndex][gridIndex] > 0) {
+        tempL = Array(bufferSize).fill(0.0)
+        tempR = Array(bufferSize).fill(0.0)
+        
+        switch (reverbs[pIndex][gridIndex]) {
+          case 1:
+            delay = 0.05
+            decay = 0.3
+            break;
+          case 2:
+            delay = 0.05
+            decay = 0.6
+            break;
+          case 3:
+            delay = 0.05
+            decay = 0.9
+            break;
+          default:
+            delay = 0.1
+            decay = 0.25
+        }
+
+        reverbOffset = Math.floor(sampleRate * delay)
+      }
+
       phraseData.forEach((noteIndex, beatIndex) => {
         if (noteIndex !== null && noteIndex !== undefined) {
           let bufferPointer = beatIndex * subBufferSize // start of the "16th" subsection
-          let localIndex = beatIndex === lastIndex + 1 ? carryover : 0
+          let rampIn = true
+          let rampOut = true
+          let localIndex = 0
+
+          if (beatIndex === lastIndex + 1) {
+            localIndex = carryover
+            rampIn = false
+          }
+
+          if (phraseData[beatIndex + 1] !== undefined && phraseData[beatIndex + 1] !== null) {
+            rampOut = false
+          }
+
           let waveIndex = 0
           let lengthOffset = (1.0 - noteLengths[pIndex][gridIndex]) * subBufferSize
 
@@ -1299,13 +1364,30 @@ const generatePhraseBuffers = (specificPhrase) => {
           samplesPerWave = parseInt(sampleRate / freq)
 
           while (localIndex + lengthOffset < subBufferSize) {
-            let valueL = someArrayL[bufferPointer + localIndex] || 0.0
-            let valueR = someArrayR[bufferPointer + localIndex] || 0.0
+            let valueL, valueR
+
+            if (tempL) {
+              valueL = tempL[bufferPointer + localIndex] || 0.0
+              valueR = tempR[bufferPointer + localIndex] || 0.0
+            } else {
+              valueL = someArrayL[bufferPointer + localIndex] || 0.0
+              valueR = someArrayR[bufferPointer + localIndex] || 0.0
+            }
+
             let sampleL = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
             let sampleR = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
 
             sampleL = sampleL * volumes[pIndex][gridIndex] * (1 - pans[pIndex][gridIndex] / 4)
             sampleR = sampleR * volumes[pIndex][gridIndex] * (pans[pIndex][gridIndex] / 4)
+
+            // "ramp" sound over 10ms for "non-continuation" tones to prevent audio pop
+            if (rampIn && localIndex < 220) {
+              sampleL = sampleL * (localIndex / 220)
+              sampleR = sampleR * (localIndex / 220)
+            } else if (rampOut && subBufferSize - (localIndex + lengthOffset) <= 220) {
+              sampleL = sampleL * ((subBufferSize - (localIndex + lengthOffset)) / 220)
+              sampleR = sampleR * ((subBufferSize - (localIndex + lengthOffset)) / 220)
+            }
 
             valueL += sampleL
             valueR += sampleR
@@ -1320,8 +1402,13 @@ const generatePhraseBuffers = (specificPhrase) => {
             else if (valueR < -1.0)
               valueR = -1.0
 
-            someArrayL[bufferPointer + localIndex] = valueL
-            someArrayR[bufferPointer + localIndex] = valueR
+            if (tempL) {
+              tempL[bufferPointer + localIndex] = valueL
+              tempR[bufferPointer + localIndex] = valueR
+            } else {
+              someArrayL[bufferPointer + localIndex] = valueL
+              someArrayR[bufferPointer + localIndex] = valueR
+            }
 
             waveIndex++
             localIndex++
@@ -1332,40 +1419,102 @@ const generatePhraseBuffers = (specificPhrase) => {
 
           carryover = 0
 
-          // handle the "carryover" of completing a full wave regardless of note length or space left in "subbuffer"
-          while (waveIndex < samplesPerWave) {
-            let valueL = someArrayL[bufferPointer + localIndex] || 0.0
-            let valueR = someArrayR[bufferPointer + localIndex] || 0.0
-            let sampleL = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
-            let sampleR = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
+          if (!rampOut) {
+            while (waveIndex < samplesPerWave) {
+              let valueL, valueR
 
-            sampleL = sampleL * volumes[pIndex][gridIndex] * (1 - pans[pIndex][gridIndex] / 4)
-            sampleR = sampleR * volumes[pIndex][gridIndex] * (pans[pIndex][gridIndex] / 4)
+              if (tempL) {
+                valueL = tempL[bufferPointer + localIndex] || 0.0
+                valueR = tempR[bufferPointer + localIndex] || 0.0
+              } else {
+                valueL = someArrayL[bufferPointer + localIndex] || 0.0
+                valueR = someArrayR[bufferPointer + localIndex] || 0.0
+              }
 
-            valueL += sampleL
-            valueR += sampleR
+              let sampleL = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
+              let sampleR = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
 
-            if (valueL > 1.0)
-              valueL = 1.0
-            else if (valueL < -1.0)
-              valueL = -1.0
+              sampleL = sampleL * volumes[pIndex][gridIndex] * (1 - pans[pIndex][gridIndex] / 4)
+              sampleR = sampleR * volumes[pIndex][gridIndex] * (pans[pIndex][gridIndex] / 4)
 
-            if (valueR > 1.0)
-              valueR = 1.0
-            else if (valueR < -1.0)
-              valueR = -1.0
+              valueL += sampleL
+              valueR += sampleR
 
-            someArrayL[bufferPointer + localIndex] = valueL
-            someArrayR[bufferPointer + localIndex] = valueR
+              if (valueL > 1.0)
+                valueL = 1.0
+              else if (valueL < -1.0)
+                valueL = -1.0
 
-            localIndex++
-            waveIndex++
-            carryover++
+              if (valueR > 1.0)
+                valueR = 1.0
+              else if (valueR < -1.0)
+                valueR = -1.0
+
+              if (tempL) {
+                tempL[bufferPointer + localIndex] = valueL
+                tempR[bufferPointer + localIndex] = valueR
+              } else {
+                someArrayL[bufferPointer + localIndex] = valueL
+                someArrayR[bufferPointer + localIndex] = valueR
+              }
+
+              localIndex++
+              waveIndex++
+              carryover++
+            }
           }
 
           lastIndex = beatIndex
         }
       })
+
+      if (tempL) {
+        for (let n = 0; n < tempL.length; n++) {
+          if (n + reverbOffset < tempL.length) {
+            let vL = tempL[n + reverbOffset]
+            let vR = tempR[n + reverbOffset]
+
+            vL += (tempL[n] * decay)
+            vR += (tempR[n] * decay)
+
+            if (vL > 1.0) {
+              vL = 1.0
+            } else if (vL < -1.0) {
+              vL = -1.0
+            }
+
+            if (vR > 1.0) {
+              vR = 1.0
+            } else if (vR < -1.0) {
+              vR = -1.0
+            }
+
+            tempL[n + reverbOffset] = vL
+            tempR[n + reverbOffset] = vR
+          }
+          
+          let vL = someArrayL[n]
+          let vR = someArrayR[n]
+
+          vL += tempL[n]
+          vR += tempR[n]
+
+          if (vL > 1.0) {
+            vL = 1.0
+          } else if (vL < -1.0) {
+            vL = -1.0
+          }
+
+          if (vR > 1.0) {
+            vR = 1.0
+          } else if (vR < -1.0) {
+            vR = -1.0
+          }
+
+          someArrayL[n] = vL
+          someArrayR[n] = vR
+        }
+      }
 
       bufferSizes[pIndex] = someArrayL.length
 
@@ -1442,11 +1591,12 @@ const generateSequence = (sequenceChanged=false, enableSave=true) => {
 }
 
 const squareSample = (index, samplesPerWave, multiplier = 1.0) => {
-  return (index <= parseInt(samplesPerWave / 2) ? 0.5 : -0.5) * multiplier
+  return (index <= parseInt(samplesPerWave / 2) ? 0.4 : -0.4) * multiplier
 }
 
 const fuzzSample = (index, samplesPerWave, multiplier = 1.0) => {
-  return (index <= parseInt(samplesPerWave / 2) ? Math.random() : Math.random() - 1) * multiplier
+  let value = Math.random() - 0.5 
+  return (index <= parseInt(samplesPerWave / 2) ? value : -value) * multiplier
 }
 
 const triangleSample = (index, samplesPerWave, multiplier = 1.0) => {
@@ -1527,6 +1677,7 @@ const save = () => {
   let qwelFrenId
   let forkId
   let forkRep
+  let token = document.querySelector('#authenticity_token').value
 
   if (name === null || name === undefined || name.length === 0) {
     document.querySelector('#name').classList.add('error')
@@ -1562,6 +1713,7 @@ const save = () => {
   let xhr = new XMLHttpRequest();
   xhr.open(method, url, true);
   xhr.setRequestHeader('Content-Type', 'application/json')
+  xhr.setRequestHeader('X-CSRF-Token', token)
   xhr.onreadystatechange = function() {
     if (this.readyState != 4) return
     if (this.status == 200) {

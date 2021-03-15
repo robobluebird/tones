@@ -31,6 +31,7 @@
   </div>
 </div>
 <div id="mainq">
+  <input type="hidden" id="authenticity_token" name="authenticity_token" value="<%= env['rack.session'][:csrf] %>" />
   <div class="title">sequence</div>
   <div id="sequence">
     <select class="step">
