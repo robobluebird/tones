@@ -11,7 +11,7 @@ use Rack::Session::Cookie, :key => 'rack.session',
                            :path => '/',
                            :secret => ENV.fetch('SESSION_SECRET') { SecureRandom.hex(64) }
 
-use Rack::Protection
+use Rack::Protection, permitted_origins: ['http://localhost:4567', 'https://quickloops.net', 'https://www.quickloops.net']
 use Rack::Protection::AuthenticityToken
 use Rack::Protection::RemoteToken
 
