@@ -1,0 +1,19 @@
+<div class="userName"><%= @visit_user.name %></div>
+<% if @visit_user.look || (current_user && @visit_user.id == current_user.id) %>
+  <div class="lookView">
+    <%= erb :look, locals: {
+        look: @visit_user.look,
+        editable: current_user && current_user.id == @visit_user.id,
+        form_action: "/users/#{@visit_user.id}/look",
+        form_method: "post"
+      }
+    %>
+  </div>
+<% end %>
+<ul>
+  <li><a href="/users/<%= @visit_user.id %>/tunes"><%= @visit_user.name %>'s tunes</a></li>
+  <li><a href="/users/<%= @visit_user.id %>/likes">tunes <%= @visit_user.name %> likes</a></li>
+  <% if current_user && current_user.id == @visit_user.id %>
+    <li><a href="/logout">log out</a></li>
+  <% end %>
+</ul>

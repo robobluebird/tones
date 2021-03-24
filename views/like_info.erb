@@ -1,0 +1,8 @@
+<%= "#{tune.likes.count} #{tune.likes.count == 1 ? 'like' : 'likes'}" %>
+<% if current_user %>
+  <form class="likeForm" id="likeForm<%= tune.id %>" autocomplete="off" style="display: inline;"  method="post" action="/tunes/<%= tune.id %>/<%= current_user && tune.liked_by?(current_user) ? "delete_likes" : "likes" %><%= "?#{request.query_string}" unless request.query_string.empty? %>">
+    <input type="hidden" name="authenticity_token" value="<%= env['rack.session'][:csrf] %>" />
+    <input name="user_id" type="hidden" value=<%= current_user.id if current_user %> />
+    <input type="submit" value=<%= current_user && tune.liked_by?(current_user) ? "unlike" : "like" %> />
+  </form>
+<% end %>

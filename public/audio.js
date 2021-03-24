@@ -1,6 +1,6 @@
 let audioCtx
 let bufferSource
-let nowPlaying = null // id of the qwel that is currently playing
+let nowPlaying = null // id of the tune that is currently playing
 let afterStop = null // callback to do work after bufferSource "onended" callback triggers
 
 const toneConstant = 1.059463
@@ -361,6 +361,11 @@ const generatePhraseBuffers = (data) => {
 
       bufferSizes[pIndex] = someArrayL.length
 
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+        unmute(audioCtx)
+      }
+
       let buffer = audioCtx.createBuffer(2, someArrayL.length, sampleRate)
       let bufferingL = buffer.getChannelData(0)
       let bufferingR = buffer.getChannelData(1)
@@ -510,7 +515,7 @@ const togglePlay = (id) => {
       oldHint.innerText = 'tap to play'
       hint.innerText = 'tap to stop'
       nowPlaying = id
-      timerId = setInterval(highlightColumn, 50)
+      timerId = setInterval(highlightColumn, 20)
       timerStart = Date.now()
       play()
     }

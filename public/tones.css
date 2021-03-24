@@ -8,12 +8,24 @@ textarea, select, button, input, label, form {
   font-size: 16px;
 }
 
+.download {
+  font-size: 0.8em;
+}
+
 .inlineBlock {
   display: inline-block;
 }
 
 h1 {
   margin: 0;
+}
+
+.radioButton {
+  font-size: 1.2em;
+}
+
+.nowPlaying {
+  margin: 1em 0 1em 0;
 }
 
 .smolTopAndBottomMargin {
@@ -33,7 +45,7 @@ h1 {
   margin: 1em auto 1em auto;
 }
 
-.frenName {
+.userName {
   margin-bottom: 1em;
   font-size: 1.1em;
 }
@@ -171,7 +183,7 @@ button {
   margin-right: 0.5em;
 }
 
-.qwelAnchor {
+.tuneAnchor {
   position: absolute;
   top: -3em;
 }
@@ -180,7 +192,7 @@ button {
   width: 100%;
 }
 
-.qwelAnchor2 {
+.tuneAnchor2 {
   position: absolute;
   top: -12em;
 }
@@ -229,7 +241,7 @@ ul {
   list-style-type: none;
 }
 
-.qwel, .poast {
+.tune, .post {
   border: 1px solid black;
   border-radius: 10px;
   padding: 1em;
@@ -237,7 +249,7 @@ ul {
   margin-top: 1em;
 }
 
-.submitPoastHolder {
+.submitPostHolder {
   text-align: right;
 }
 
@@ -245,20 +257,20 @@ ul {
   display: block;
 }
 
-.poast .body {
+.post .body {
   margin-bottom: 1em;
 }
 
-.poast .body .title {
+.post .body .title {
   font-weight: bold;
   margin-bottom: 1em;
 }
 
-.poast .body .text {
+.post .body .text {
   margin-bottom: 1em;
 }
 
-.poast .body .text span {
+.post .body .text span {
   white-space: pre-line;
 }
 
@@ -266,7 +278,7 @@ ul {
   white-space: pre-line;
 }
 
-.poastInfo, .commentInfo, .replyInfo {
+.postInfo, .commentInfo, .replyInfo {
   font-style: italic;
   font-size: 0.8em;
 }
@@ -277,7 +289,7 @@ ul {
   padding: 0.5em;
 }
 
-.poastInfo a, .commentInfo a, .replyInfo a {
+.postInfo a, .commentInfo a, .replyInfo a {
   font-style: normal;
   font-size: 1em;
 }
@@ -305,15 +317,15 @@ ul {
   font-size: 0.9em;
 }
 
-.qwel.options {
+.tune.options {
   padding: 0;
 }
 
-.qwel .options {
+.tune .options {
   display: flex;
 }
 
-.qwel .options .option {
+.tune .options .option {
   padding: 0.5em;
   border-bottom: 1px solid black;
   box-sizing: border-box;
@@ -322,27 +334,27 @@ ul {
   cursor: pointer;
 }
 
-.qwel .options .option.active {
+.tune .options .option.active {
   border-bottom: none;
 }
 
-.qwel .options .option:not(:last-child) {
+.tune .options .option:not(:last-child) {
   border-right: 1px solid black;
 }
 
-.qwel .options .option .text {
+.tune .options .option .text {
   vertical-align: middle;
 }
 
-.qwel .options .option.active .text {
+.tune .options .option.active .text {
   text-decoration: underline;
 }
 
-.qwel.options .content {
+.tune.options .content {
   padding: 0.5em;
 }
 
-.qwel:not(:last-child) {
+.tune:not(:last-child) {
 }
 
 .comms {
@@ -373,7 +385,7 @@ li.comment:not(:last-child) {
   border-bottom: 1px dashed black;
 }
 
-.qwelGrid {
+.tuneGrid {
   position: relative;
   cursor: pointer;
   width: 100%;

@@ -1,0 +1,34 @@
+<script type="text/javascript">
+  const params = (new URL(document.location)).searchParams
+  const sortParam = params.get('sort')
+
+  if (sortParam !== null && sortParam !== undefined) {
+    document.querySelector('#sortSelect').value = sortParam
+  }
+
+  const setSort = (element) => {
+    replaceOrAddSearchParam('sort', element.value)
+  }
+
+  const replaceOrAddSearchParam = (key, value) => {
+    let replaced = false
+    let newSearchStr = window.location.search.slice(1).split('&').map(kvStr => {
+      let pair = kvStr.split('=')
+      
+      if (pair[0] === key) {
+        replaced = true
+        return `${key}=${value}`
+      } else {
+        return kvStr
+      }
+    }).join('&')
+
+    if (!replaced) {
+      let maybeAmp = newSearchStr.length > 0 ? '&' : ''
+      newSearchStr = newSearchStr.concat(`${maybeAmp}${key}=${value}`)
+    }
+
+    history.replaceState(null, null, ' ');
+    window.location.search = newSearchStr
+  }
+</script>

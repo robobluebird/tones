@@ -1,0 +1,59 @@
+<% if title %>
+  <div class="userName"><%= title %></div>
+<% end %>
+<div class="sortHolder">
+  <label>sort by</label>
+  <select id="sortSelect" onchange="setSort(this)">
+    <option selected value=0>freshest</option>
+    <option value=1>newest</option>
+    <option value=2>most liked</option>
+    <option value=3>longest</option>
+    <option value=4>shortest</option>
+  </select>
+</div>
+<div class="paging">
+  <% if page && page > 1 %>
+    <a href="#" onclick="replaceOrAddSearchParam('page', 1); return false;">first</a>
+  <% end %>
+  <% if page && page > 1 %>
+    <a href="#" onclick="replaceOrAddSearchParam('page', <%= page - 1 %>); return false;">prev</a>
+  <% end %>
+  <% if page && page_count %>
+    <span>page <%= page %> of <%= page_count %></span>
+  <% end %> <% if page && page_count && page < page_count %>
+    <a href="#" onclick="replaceOrAddSearchParam('page', <%= page + 1 %>); return false;">next</a>
+  <% end %>
+  <% if page && page < page_count %>
+    <a href="#" onclick="replaceOrAddSearchParam('page', <%= page_count %>); return false;">last</a>
+  <% end %>
+</div>
+<div>
+  <% if @tunes.empty? %>
+    <div class="tune">nothing to show!</div>
+  <% end %>
+  <% @tunes.each do |tune| %>
+    <%= erb :mini, locals: {tune: tune} %>
+  <% end %>
+</div>
+<%= erb :minilookhelp %>
+<%= erb :minihelp %>
+<div class="paging bottom">
+  <% if page && page > 1 %>
+    <a href="#" onclick="replaceOrAddSearchParam('page', 1); return false;">first</a>
+  <% end %>
+  <% if page && page > 1 %>
+    <a href="#" onclick="replaceOrAddSearchParam('page', <%= page - 1 %>); return false;">prev</a>
+  <% end %>
+  <% if page && page_count %>
+    <span>page <%= page %> of <%= page_count %></span>
+  <% end %>
+  <% if page && page_count && page < page_count %>
+    <a href="#" onclick="replaceOrAddSearchParam('page', <%= page + 1 %>); return false;">next</a>
+  <% end %>
+  <% if page && page < page_count %>
+    <a href="#" onclick="replaceOrAddSearchParam('page', <%= page_count %>); return false;">last</a>
+  <% end %>
+</div>
+
+<%= erb :free_look_help %>
+<%= erb :page_help %>

@@ -1,0 +1,57 @@
+<div class="tune" id="tune<%= tune.id %>">
+  <div class="secondLine">
+    <a href="/tunes/<%= tune.id %>"><%= tune.name %></a> by <div class="inlineBlock"><a href="/users/<%= tune.user.id %>"><%= tune.user.name %></a><% if tune.user.look %><%= erb :minilook, locals: {width: '16px', look: tune.user.look, url: "/users/#{tune.user.id}/look"} %><% end %></div>
+    <a class="download" id="download<%= tune.id %>" style="float: right;" href="#">download</a>
+  </div>
+  <a class="tuneAnchor" id="q<%= tune.id %>"></a>
+  <input type="hidden" class="tuneRep" id="tuneRep<%= tune.id %>" value="<%= tune.rep %>" />
+  <div onclick="togglePlay(<%= tune.id %>)" class="tuneGrid" id="tuneGrid<%= tune.id %>">
+    <div class="playHint" id="playHint<%= tune.id %>">tap to play</div>
+  </div>
+  <div class="secondLine">
+    <%= "#{tune.length / 60000}:" + "#{(tune.length / 1000) % 60}".rjust(2, '0') %>
+    -
+    <%= chron tune.updated_at %>
+  </div>
+  <div class="secondLine">
+    <span id="likes<%= tune.id %>">
+      <%= erb :like_info, locals: {tune: tune} %>
+    </span>
+    <% if current_user && tune.user_id != current_user.id && !tune.remixed_by?(current_user)  %>
+      <form method="POST" action="/tunes/<%= tune.id %>/remix">
+        <input type="hidden" name="authenticity_token" value="<%= env['rack.session'][:csrf] %>" />
+        <input type="submit" value="remix" />
+      </form>
+    <% end %>
+  </div>
+  <% if tune.remixed_from %>
+    <div class="secondLine">
+      remixed from <a href="/tunes/<%= tune.remixed_from.id %>"><%= tune.remixed_from.name %></a> by <a href="/users/<%= tune.remixed_from.user.id %>"><%= tune.remixed_from.user.name %></a>
+      <% if tune.remixed_from.user.look %>
+        <%= erb :minilook, locals: {width: '16px', look: tune.remixed_from.user.look, url: "/users/#{tune.remixed_from.user.id}/look"} %>
+      <% end %>
+    </div>
+  <% end %>
+  <div class="comms">
+    <a class="tuneAnchor2" id="m<%= tune.id %>"></a>
+    <% if current_user %>
+      <div class="commentFormHolder">
+        <form class="commentForm" id="commentForm_tune-<%= tune.id %>" autocomplete="off" method="post" action="/tunes/<%= tune.id %>/comments<%= "?#{request.query_string}" unless request.query_string.empty? %>">
+          <input type="hidden" name="authenticity_token" value="<%= env['rack.session'][:csrf] %>" />
+          <input name="user_id" type="hidden" value=<%= current_user.id %> />
+          <input style="margin-top: 1em;" name="body" class="commentInput" type="text" id="commentInput<%= tune.id %>" placeholder="add a comment" />
+          <a id="drawSomethingOpener_tune-<%= tune.id %>" href="#" class="drawSomethingOpener">draw something</a>
+          <div id="drawSomethingHolder_tune-<%= tune.id %>" class="drawSomethingHolder hidden">
+            <%= erb :free_look, locals: {ref_id: "tune-#{tune.id}", submit_name: 'submitComment', input_name: 'commentInput'} %>
+          </div>
+          <input class="commentButton" id="submitComment<%= tune.id %>" type="submit" disabled value="post comment">
+        </form>
+      </div>
+    <% end %>
+    <ul id="comments<%= tune.id %>">
+      <% tune.comments.each do |c| %>
+        <%= erb :comment, locals: {comment: c} %>
+      <% end %>
+    </ul>
+  </div>
+</div>

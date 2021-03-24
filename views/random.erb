@@ -1,0 +1,12 @@
+<div>
+  <% if @tune %>
+    <%= erb :mini, locals: {tune: @tune} %>
+  <% else %>
+    <div class="tune">
+      nothing exists yet!
+    </div>
+  <% end %>
+</div>
+<%= erb :minilookhelp %>
+<%= erb :minihelp %>
+

@@ -1,0 +1,202 @@
+<% form_action = "/looks" unless form_action %>
+<% form_method = "post" unless form_method %>
+<% editable = false unless editable %>
+<% look = "" unless look %>
+<% editNow = false unless editNow %>
+<% if editable %>
+  <div style="text-align: right; padding-bottom: 0.5em;">
+    <a href="#" id="editNow" class="startEditing<%= " hidden" if editNow %>">edit</a>
+  </div>
+  <div id="lookTools" class="lookTools<%= " hidden" unless editNow %>">
+    <% if look == '' || look.nil? %>
+      <p>Create an icon for your profile by painting in the 16x16 grid below. Or, <a href="/">skip this.</a> You can do it later from your profile page.</p>
+    <% end %>
+    <select onchange="showColor(this)" id="palette">
+      <% %w(red lightred darkred orange orangered darkorange yellow lightyellow gold green lightgreen darkgreen blue lightblue darkblue purple lightpurple darkpurple pink lightpink gray lightgray black brown lightbrown white).each do |c| %>
+        <option value="<%= c %>"><%= c %></option>
+      <% end %>
+    </select>
+    <div id="colorCell" class="colorCell">
+      <div class="lookCellHeight"></div>
+    </div>
+  </div>
+<% end %>
+<div class="look noselect">
+  <% (16 * 16).times do |i| %><div class="noselect lookCell <%= editable && editNow && (i.to_f / 16).floor.even? ? i.even? ? 'gray4' : 'gray5' : (i.even? ? 'gray5' : 'gray4') if editable && editNow %>"><div class="lookCellHeight noselect"></div></div><% end %>
+</div>
+<% if editable %>
+  <form id="lookForm" class="lookForm<%= " hidden" unless editNow %>" action="<%= form_action %><%= params[:r] ? "?r=#{params[:r]}" : '' %>" method="<%= form_method %>">
+    <input type="hidden" name="authenticity_token" value="<%= env['rack.session'][:csrf] %>" />
+    <input type="hidden" name="look" />
+    <input type="submit" value="save" />
+  </form>
+<% end %>
+<script type="text/javascript">
+  let editable = <%= editable %>
+  let editNow = <%= editNow %>
+  let color = 'red'
+  let painting = false
+  let mouseDown = false
+  let rep = "<%= look %>"
+
+  const encode = () => {
+    rep = ""
+
+    forEach(document.querySelectorAll('.lookCell'), (i, cell) => {
+      let classNames = [...cell.classList.entries()].map(e => e[1])
+      let foundColor = classNames.find(c => colors.includes(c))
+
+      if (!!foundColor) {
+        rep = rep.concat(
+          i.toString(16).toUpperCase().padStart(2, '0'),
+          colors.indexOf(foundColor).toString(16).toUpperCase().padStart(2, '0')
+        )
+      }
+    })
+
+    document.querySelector("form.lookForm input[name='look']").value = rep
+  }
+
+  const init = () => {
+    if (rep === null || rep === undefined || rep.length === 0) {
+      const params = (new URL(document.location)).searchParams
+      const repParam = params.get('l')
+
+      if (repParam != null && repParam != undefined) {
+        rep = repParam
+        parseRep()
+      }
+    } else {
+      parseRep()
+    }
+
+    if (editable) {
+      if (editNow) {
+        hookup()
+      } else {
+        document.querySelector('#editNow').onclick = (e) => {
+          e.preventDefault()
+          e.target.classList.add('hidden')
+          document.querySelector('#lookTools').classList.remove('hidden')
+          document.querySelector('#lookForm').classList.remove('hidden')
+          document.querySelector('.look').classList.add('pointy')
+          forEach(document.querySelectorAll('.lookCell'), (i, cell) => {
+            if (Math.floor(i / 16) % 2 === 0) {
+              if (i % 2 === 0) {
+                cell.classList.add('gray4')
+              } else {
+                cell.classList.add('gray5')
+              }
+            } else {
+              if (i % 2 === 0) {
+                cell.classList.add('gray5')
+              } else {
+                cell.classList.add('gray4')
+              }
+            }
+          })
+          hookup()
+        }
+      }
+    }
+  }
+
+  const parseRep = () => {
+    let cells = [...document.querySelectorAll('.lookCell')]
+
+    rep.match(/.{1,4}/g) // get groups of 4
+       .forEach(cellRep => {
+         let positionIndex = parseInt(cellRep.slice(0, 2), 16)
+         let colorIndex = parseInt(cellRep.slice(2, 4), 16)
+
+         cells[positionIndex].classList.remove(...colors)
+         cells[positionIndex].classList.add(colors[colorIndex])
+       })
+  }
+
+  const showColor = (e) => {
+    document.querySelector('#colorCell').classList.remove(...colors)
+    document.querySelector('#colorCell').classList.add(e.value)
+    color = e.value
+  }
+
+  const startDrag = (e) => {
+    e.preventDefault()
+
+    mouseDown = true
+
+    if (e.target.classList.contains(color)) {
+      e.target.classList.remove(...colors)
+      painting = false
+    } else {
+      painting = true
+      e.target.classList.remove(...colors)
+      e.target.classList.add(color)
+    }
+  }
+
+  const maybePaint = (e) => {
+    e.preventDefault()
+
+    if (mouseDown) {
+      if (painting) {
+        e.target.classList.remove(...colors)
+        e.target.classList.add(color)
+      } else {
+        e.target.classList.remove(...colors)
+      }
+    }
+  }
+
+  const hookup = () => {
+    forEach(document.querySelectorAll('.lookCell'), (i, cell) => {
+      cell.onmousedown = startDrag
+      cell.onmousemove = maybePaint
+
+      cell.ontouchstart = (e) => {
+        e.preventDefault()
+
+        mouseDown = true
+
+        if (e.target.classList.contains(color)) {
+          e.target.classList.remove(...colors)
+          painting = false
+        } else {
+          painting = true
+          e.target.classList.remove(...colors)
+          e.target.classList.add(color)
+        }
+      }
+
+      cell.ontouchmove = (e) => {
+        e.preventDefault()
+
+        let touch = e.touches[0]
+        let elem = document.elementFromPoint(touch.clientX, touch.clientY)
+
+        if (mouseDown && elem.classList.contains('lookCell')) {
+          if (painting) {
+            elem.classList.remove(...colors)
+            elem.classList.add(color)
+          } else {
+            elem.classList.remove(...colors)
+          }
+        }
+      }
+    })
+
+    document.onmouseup = (e) => {
+      mouseDown = false
+      encode()
+    }
+
+    document.ontouchend = (e) => {
+      mouseDown = false
+      encode()
+    }
+
+    showColor({ value: color })
+  }
+
+  init()
+</script>

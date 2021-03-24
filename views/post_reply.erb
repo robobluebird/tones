@@ -1,0 +1,15 @@
+<div class="reply" id="reply<%= post.id %>">
+  <% if post.look && post.look.length > 0 %>
+    <%= erb :minilook, locals: {width: '8em', look: post.look, url: "#"} %>
+  <% end %>
+  <div class="replyBody" id="text<%= post.id %>">
+    <% post.parsed.each do |bp| %><% if bp.first == :q %><div class="quote"><%= bp.last %></div><% else %><span><%= bp.last %></span><% end %>
+    <% end %>
+  </div>
+  <div class="replyInfo">
+    <%= post.user.name %>
+    <% if post.user.look %>
+      <%= erb :minilook, locals: {width: '16px', look: post.user.look, url: "users/{post.user.id}/look"} %>
+    <% end %> - <%= chron post.created_at %><% if current_user %> - <a class="doQuote" data-userName="<%= post.user.name %>" href="#" id="quote<%= parent_id %>-<%= post.id %>">quote</a><% end %>
+  </div>
+</div>

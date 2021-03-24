@@ -1,8 +1,8 @@
 <script type="text/javascript">
-  let encoded = "<%= @qwel.rep %>";
-  let qwelIdStr = "<%= @qwel.id %>";
-  let qwelFrenIdStr = "<%= @qwel.fren_id %>";
-  let frenIdStr = "<%= current_fren ? current_fren.id : nil %>";
+  let encoded = "<%= @tune.rep %>";
+  let tuneIdStr = "<%= @tune.id %>";
+  let tuneUserIdStr = "<%= @tune.user_id %>";
+  let userIdStr = "<%= current_user ? current_user.id : nil %>";
   let forkIdStr = "<%= @fork_id %>";
   let forkRepStr = "<%= @fork_rep %>";
 </script>
@@ -15,16 +15,16 @@
       <span class="spaceRight">
         <a id="download" href="#">download</a>
       </span>
-      <% if !current_fren %>
+      <% if !current_user %>
         <span class="spaceRight">
-          <a href="/frens/new">log in</a>
+          <a href="/users/new">log in</a>
         </span>
       <% end %>
     </div>
   </div>
   <div class="nameLine">
-    <input <%= (current_fren && (@qwel.id.nil? || @qwel.fren_id == current_fren.id)) ? '' : 'readonly' %> type="text" id="name" name="name" placeholder="name" />
-    <% if current_fren && (@qwel.id.nil? || @qwel.fren_id == current_fren.id) %>
+    <input <%= (current_user && (@tune.id.nil? || @tune.user_id == current_user.id)) ? '' : 'readonly' %> type="text" id="name" name="name" placeholder="name" />
+    <% if current_user && (@tune.id.nil? || @tune.user_id == current_user.id) %>
       <button id="save" disabled class="action" onclick="save()">save</button>
     <% end %>
     <span id="saveNotice">✓</span>

@@ -1,0 +1,33 @@
+<script type="text/javascript">
+  const layoutMinilooks = (container) => {
+    if (container) {
+      let rep = container.querySelector(':scope input[type="hidden"]').value
+      let cells = [...container.querySelectorAll(':scope .minilook .lookCell')]
+
+      rep.match(/.{1,4}/g) // get groups of 4
+         .forEach(cellRep => {
+           let positionIndex = parseInt(cellRep.slice(0, 2), 16)
+           let colorIndex = parseInt(cellRep.slice(2, 4), 16)
+
+           cells[positionIndex].classList.remove(...colors)
+           cells[positionIndex].classList.add(colors[colorIndex])
+         })
+    } else {
+      forEach(document.querySelectorAll('.minilookContainer'), (i, container) => {
+        let rep = container.querySelector(':scope input[type="hidden"]').value
+        let cells = [...container.querySelectorAll(':scope .minilook .lookCell')]
+
+        rep.match(/.{1,4}/g) // get groups of 4
+           .forEach(cellRep => {
+             let positionIndex = parseInt(cellRep.slice(0, 2), 16)
+             let colorIndex = parseInt(cellRep.slice(2, 4), 16)
+
+             cells[positionIndex].classList.remove(...colors)
+             cells[positionIndex].classList.add(colors[colorIndex])
+           })
+      })
+    }
+  }
+
+  layoutMinilooks()
+</script>

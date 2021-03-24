@@ -1,0 +1,13 @@
+<li class="comment">
+  <div class="commentBody">
+    <% if comment.look && comment.look.length > 0 %>
+      <%= erb :minilook, locals: {width: '8em', look: comment.look, url: "#"} %>
+    <% end %>
+    <%= comment.body %></div>
+  <div class="commentInfo">
+    <%= comment.user.name %>
+    <% if comment.user.look %>
+      <%= erb :minilook, locals: {width: '16px', look: comment.user.look, user_id: comment.user.id} %>
+    <% end %> - <%= chron comment.created_at %>
+  </div>
+</li>

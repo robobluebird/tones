@@ -1,0 +1,73 @@
+<div class="tune options">
+  <div class="options">
+    <div class="option active" id="optionSignIn">
+      <div class="text">
+        log in
+      </div>
+    </div>
+    <div class="option" id="optionSignUp">
+      <div class="text">
+        sign up
+      </div>
+    </div>
+  </div>
+  <div class="content">
+    <span class="error"><%= error_for params[:e] %></span>
+    <div class="contentPane" id="contentSignIn">
+      <form autocomplete="off" action="/login" method="post" autocomplete="off">
+        <input type="hidden" name="authenticity_token" value="<%= env['rack.session'][:csrf] %>" />
+        <input class="fullWidth" type="text" name="name" placeholder="name" value="<%= params[:name] %>" /> 
+        <br />
+        <input class="fullWidth" type="password" name="password" placeholder="password" /> 
+        <br />
+        <input type="submit" value="submit" />
+      </form>
+    </div>
+    <div style="display: none;" class="contentPane" id="contentSignUp">
+      <form action="/users" method="post" autocomplete="off">
+        <input type="hidden" name="authenticity_token" value="<%= env['rack.session'][:csrf] %>" />
+        <input class="fullWidth" type="text" name="name" placeholder='name (letters, numbers, "-", "_")' value="<%= params[:name] %>" /> 
+        <br />
+        <input class="fullWidth" type="password" name="password" placeholder="password" /> 
+        <br />
+        <input class="fullWidth" type="password" name="password_confirmation" placeholder="confirm password" /> 
+        <br />
+        <input type="submit" value="submit" />
+      </form>
+    </div>
+  </div>
+</div>
+<script type="text/javascript">
+  forEach(document.querySelectorAll('.option'), (i, o) => {
+    o.onclick = (e) => {
+      let name = e.currentTarget.id.slice(6)
+
+      forEach(document.querySelectorAll('.option'), (i, p) => {
+        p.classList.remove('active')
+      })
+
+      forEach(document.querySelectorAll('.contentPane'), (i, c) => {
+        c.style.display = "none"
+      })
+
+      document.querySelector(`#content${name}`).style.display = "block"
+      document.querySelector('.error').innerText = ''
+      e.currentTarget.classList.add('active')
+    }
+  })
+
+  const params = (new URL(document.location)).searchParams
+  const paneParam = params.get('p')
+  if (paneParam) {
+    forEach(document.querySelectorAll('.option'), (i, p) => {
+      p.classList.remove('active')
+    })
+
+    forEach(document.querySelectorAll('.contentPane'), (i, c) => {
+      c.style.display = "none"
+    })
+
+    document.querySelector(`#content${paneParam}`).style.display = "block"
+    document.querySelector(`#option${paneParam}`).classList.add('active')
+  }
+</script>

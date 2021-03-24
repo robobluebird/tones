@@ -1,0 +1,152 @@
+<script type="text/javascript">
+  let color = 'red'
+  let painting = false
+  let mouseDown = false
+  let rep = ''
+  let encodee
+
+  const freeEncode = (id) => {
+    rep = ''
+
+    forEach(document.querySelectorAll(`#freeLook_${id} .lookCell`), (i, cell) => {
+      let classNames = [...cell.classList.entries()].map(e => e[1])
+      let foundColor = classNames.find(c => colors.includes(c))
+
+      if (!!foundColor) {
+        rep = rep.concat(
+          i.toString(16).toUpperCase().padStart(2, '0'),
+          colors.indexOf(foundColor).toString(16).toUpperCase().padStart(2, '0')
+        )
+      }
+    })
+
+    let qid = id.split('-')[1]
+    let submitName = document.querySelector(`#submitName_${id}`).value
+    let inputName = document.querySelector(`#inputName_${id}`).value
+
+    document.querySelector(`#${submitName}${qid}`).disabled = rep.length === 0 && document.querySelector(`#${inputName}${qid}`).value.length === 0
+
+    document.querySelector(`#freeLookInput_${id}`).value = rep
+  }
+
+  const freeInit = () => {
+    freeHookup()
+  }
+
+  const freeParseRep = (id) => {
+    let cells = [...document.querySelectorAll(`#freeLook_${id} .lookCell`)]
+
+    rep.match(/.{1,4}/g) // get groups of 4
+       .forEach(cellRep => {
+         let positionIndex = parseInt(cellRep.slice(0, 2), 16)
+         let colorIndex = parseInt(cellRep.slice(2, 4), 16)
+
+         cells[positionIndex].classList.remove(...colors)
+         cells[positionIndex].classList.add(colors[colorIndex])
+       })
+  }
+
+  const freeShowColor = (e, id) => {
+    document.querySelector(`#colorCell_${id}`).classList.remove(...colors)
+    document.querySelector(`#colorCell_${id}`).classList.add(e.value)
+    color = e.value
+  }
+
+  const freeStartDrag = (e) => {
+    e.preventDefault()
+
+    mouseDown = true
+    encodee = e.target.parentElement.id.split('_')[1]
+
+    if (e.target.classList.contains(color)) {
+      e.target.classList.remove(...colors)
+      painting = false
+    } else {
+      painting = true
+      e.target.classList.remove(...colors)
+      e.target.classList.add(color)
+    }
+  }
+
+  const freeMaybePaint = (e) => {
+    e.preventDefault()
+
+    if (mouseDown) {
+      if (painting) {
+        e.target.classList.remove(...colors)
+        e.target.classList.add(color)
+      } else {
+        e.target.classList.remove(...colors)
+      }
+    }
+  }
+
+  const freeHookup = () => {
+    forEach(document.querySelectorAll('.freeLook'), (i, pane) => {
+      let id = pane.id.split('_')[1]
+
+      document.querySelector(`#drawSomethingOpener_${id}`).onclick = (e) => {
+        e.preventDefault()
+
+        encodee = id
+
+        let holder = document.querySelector(`#drawSomethingHolder_${id}`)
+        let doOpen = holder.classList.contains('hidden')
+
+        forEach(document.querySelectorAll('.drawSomethingHolder'), (i, d) => {
+          d.classList.add('hidden')
+          forEach(d.querySelectorAll(':scope .lookCell'), (i, cell) => {
+            cell.classList.remove(...colors)
+          })
+        })
+
+        forEach(document.querySelectorAll('.drawSomethingOpener'), (i, o) => {
+          o.innerText = "draw something"
+        })
+
+        if (doOpen) {
+          e.target.innerText = "don't draw something"
+          holder.classList.remove('hidden')
+        }
+      }
+
+      forEach(pane.querySelectorAll(':scope .lookCell'), (i, cell) => {
+        cell.onmousedown = freeStartDrag
+        cell.onmousemove = freeMaybePaint
+        cell.ontouchstart = freeStartDrag
+
+        cell.ontouchmove = (e) => {
+          e.preventDefault()
+
+          let touch = e.touches[0]
+          let elem = document.elementFromPoint(touch.clientX, touch.clientY)
+
+          if (mouseDown && elem.classList.contains('lookCell')) {
+            if (painting) {
+              elem.classList.remove(...colors)
+              elem.classList.add(color)
+            } else {
+              elem.classList.remove(...colors)
+            }
+          }
+        }
+      })
+
+      freeShowColor({ value: color }, id)
+    })
+
+    document.onmouseup = (e) => {
+      mouseDown = false
+      if (encodee)
+        freeEncode(encodee)
+    }
+
+    document.ontouchend = (e) => {
+      mouseDown = false
+      if (encodee)
+        freeEncode(encodee)
+    }
+  }
+
+  freeInit()
+</script>
