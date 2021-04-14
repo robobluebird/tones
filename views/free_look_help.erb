@@ -4,6 +4,9 @@
   let mouseDown = false
   let rep = ''
   let encodee
+  let tappedOnce = false
+  let tappedTwice = false
+  let tapTime = null
 
   const freeEncode = (id) => {
     rep = ''
@@ -44,12 +47,6 @@
          cells[positionIndex].classList.remove(...colors)
          cells[positionIndex].classList.add(colors[colorIndex])
        })
-  }
-
-  const freeShowColor = (e, id) => {
-    document.querySelector(`#colorCell_${id}`).classList.remove(...colors)
-    document.querySelector(`#colorCell_${id}`).classList.add(e.value)
-    color = e.value
   }
 
   const freeStartDrag = (e) => {
@@ -111,12 +108,95 @@
       }
 
       forEach(pane.querySelectorAll(':scope .lookCell'), (i, cell) => {
-        cell.onmousedown = freeStartDrag
-        cell.onmousemove = freeMaybePaint
-        cell.ontouchstart = freeStartDrag
+        cell.onmousedown = (e) => {
+          e.preventDefault()
+
+          let justTappedTwice = false
+
+          if (tappedOnce) {
+            if (Date.now() - tapTime < 200) {
+              tappedTwice = true
+              justTappedTwice = true
+            } else {
+              tappedOnce = false
+              tappedTwice = false
+              tapTime = null
+            }
+          } else {
+            tappedOnce = true
+            tapTime = Date.now()
+          }
+
+          mouseDown = true
+
+          if (!justTappedTwice) {
+            if (e.target.classList.contains(color)) {
+              e.target.classList.remove(...colors)
+              painting = false
+            } else {
+              painting = true
+              e.target.classList.remove(...colors)
+              e.target.classList.add(color)
+            }
+          }
+        }
+
+        cell.onmousemove = (e) => {
+          e.preventDefault()
+
+          if (!tappedTwice) {
+            return false
+          }
+
+          if (mouseDown) {
+            if (painting) {
+              e.target.classList.remove(...colors)
+              e.target.classList.add(color)
+            } else {
+              e.target.classList.remove(...colors)
+            }
+          }
+        }
+
+        cell.ontouchstart = (e) => {
+          e.preventDefault()
+
+          let justTappedTwice = false
+
+          if (tappedOnce) {
+            if (Date.now() - tapTime < 300) {
+              tappedTwice = true
+              justTappedTwice = true
+            } else {
+              tappedOnce = false
+              tappedTwice = false
+              tapTime = null
+            }
+          } else {
+            tappedOnce = true
+            tapTime = Date.now()
+          }
+
+          mouseDown = true
+
+          if (!justTappedTwice) {
+            if (e.target.classList.contains(color)) {
+              e.target.classList.remove(...colors)
+              painting = false
+            } else {
+              painting = true
+              e.target.classList.remove(...colors)
+              e.target.classList.add(color)
+            }
+          }
+        }
 
         cell.ontouchmove = (e) => {
           e.preventDefault()
+
+          if (!tappedTwice) {
+            return false
+          }
 
           let touch = e.touches[0]
           let elem = document.elementFromPoint(touch.clientX, touch.clientY)
@@ -131,22 +211,48 @@
           }
         }
       })
-
-      freeShowColor({ value: color }, id)
     })
 
     document.onmouseup = (e) => {
       mouseDown = false
-      if (encodee)
-        freeEncode(encodee)
+      
+      if (tappedTwice) {
+        tappedTwice = false
+        tappedOnce = false
+        tapTime = null
+      }
+
+      if (encodee) freeEncode(encodee)
     }
 
     document.ontouchend = (e) => {
       mouseDown = false
-      if (encodee)
-        freeEncode(encodee)
+
+      if (tappedTwice) {
+        tappedTwice = false
+        tappedOnce = false
+        tapTime = null
+      }
+
+      if (encodee) freeEncode(encodee)
     }
   }
+
+  forEach(document.querySelectorAll('.colorCell'), (i, c) => {
+    c.onclick = (e) => {
+      let newColor = c.getAttribute('data-color')
+
+      forEach(document.querySelectorAll('.colorCell'), (i, d) => {
+        d.classList.remove('selected')
+      })
+
+      forEach(document.querySelectorAll(`.colorCell.${newColor}`), (i, d) => {
+        d.classList.add('selected')
+      })
+
+      color = newColor
+    }
+  })
 
   freeInit()
 </script>

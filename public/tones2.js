@@ -1,20 +1,3 @@
-const toneConstant = 1.059463
-const sampleRate = 22050
-const noteNamesAndFreqs = {
-  C: 262,
-  'C#': 277,
-  D: 294,
-  'D#': 311,
-  E: 330,
-  F: 349,
-  'F#': 370,
-  G: 392,
-  'G#': 415,
-  A: 440,
-  'A#': 466,
-  B: 494
-}
-
 let startup = true
 let name = ""
 let bpms
@@ -27,6 +10,7 @@ let volumes
 let pans
 let noteLengths
 let reverbs
+let phraseIds
 let sequence
 let columns
 let playing = false
@@ -42,6 +26,13 @@ let sequenceSelects
 let phraseBuffers = []
 let playButton
 let sampleTones
+
+let drums = {
+  kick: kicks()
+}
+
+const remixThis = (tuneId) => {
+}
 
 const audioCtx = () => {
   if (audioCtxRef) {
@@ -76,16 +67,6 @@ const generateNoteNames = (startNote) => {
   return names.reverse()
 }
 
-const insertAfter = (newNode, existingNode) => {
-  existingNode.parentNode.insertBefore(newNode, existingNode.nextSibling)
-}
-
-const forEach = (array, callback, scope) => {
-  for (let i = 0; i < array.length; i++) {
-    callback.call(scope, i, array[i])
-  }
-}
-
 const paintAll = () => {
   pData.forEach((phrase, pIndex) => {
     phrase.forEach((grid, index) => {
@@ -95,7 +76,7 @@ const paintAll = () => {
       forEach(cells, (i, cell) => {
         let b = cell.firstElementChild
 
-        b.classList.remove("red", "green", "blue", "orange", "purple")
+        b.classList.remove("red", "green", "blue", "orange", "purple", "gold")
 
         if (pData[pIndex][index][i % 16] === Math.floor(i / 16)) {
           b.classList.add(toneClass(tones[pIndex][index] || 0))
@@ -103,21 +84,6 @@ const paintAll = () => {
       })
     })
   })
-}
-
-const toneClass = (index) => {
-  switch (index) {
-    case 0:
-      return 'red'
-    case 1:
-      return 'blue'
-    case 2:
-      return 'green'
-    case 3:
-      return 'orange'
-    case 4:
-      return 'purple'
-  }
 }
 
 const changeTempo = (e) => {
@@ -147,7 +113,18 @@ const changeTone = (e) => {
   const pIndex = indicies[0]
   const index = indicies[1]
 
-  tones[pIndex][index] = parseInt(e.target.value)
+  let newTone = parseInt(e.target.value)
+
+  tones[pIndex][index] = newTone
+
+  // if DRUM, disable octave and because laziness
+  if (newTone === 5) {
+    document.querySelector(`#octave${pIndex}-${index}`).disabled = true
+    document.querySelector(`#notelength${pIndex}-${index}`).disabled = true
+  } else {
+    document.querySelector(`#octave${pIndex}-${index}`).disabled = false
+    document.querySelector(`#notelength${pIndex}-${index}`).disabled = false
+  }
 
   paintAll()
   generateSound(pIndex)
@@ -312,6 +289,7 @@ const deleteGrid = (e) => {
   octaves[pIndex].splice(index, 1)
   noteLengths[pIndex].splice(index, 1)
   reverbs[pIndex].splice(index, 1)
+  phraseIds[pIndex].splice(index, 1)
   volumes[pIndex].splice(index, 1)
   pans[pIndex].splice(index, 1)
   notes[pIndex].splice(index, 1)
@@ -349,16 +327,21 @@ const deleteGrid = (e) => {
 }
 
 const createPhrase = () => {
+  const largestPhraseId = phraseIds.sort((a, b) => a - b)[phraseIds.length - 1]
+  
+  if (largestPhraseId === 255) return
+
   const phrases = document.querySelector('.phrases')
   const proto = document.querySelector("div.proto")
   const pIndex = pData.length
+  const phraseId = largestPhraseId + 1
 
   let phraseContainer = document.createElement('div')
   phraseContainer.className = 'phrase'
   phraseContainer.id = `phrase${pIndex}`
 
   let phraseNo = document.createElement('div')
-  phraseNo.innerText = pIndex + 1
+  phraseNo.innerText = phraseId
   phraseNo.style.display = 'inline-block'
   phraseNo.style.marginBottom = '0.5em'
 
@@ -395,10 +378,9 @@ const createPhrase = () => {
     keySelect.add(keyOpt)
   })
 
-  let dupButton = document.createElement('a')
-  dupButton.className = 'noStyle dupPhrase'
-  dupButton.href = '#'
-  dupButton.innerText = '⧉'
+  let dupButton = document.createElement('button')
+  dupButton.className = 'dupPhrase'
+  dupButton.innerText = 'duplicate'
   dupButton.id = `dupphrase${pIndex}`
   dupButton.onclick = duplicatePhrase
 
@@ -432,6 +414,7 @@ const createPhrase = () => {
   pData[pIndex] = []
   tones[pIndex] = []
   rootNotes[pIndex] = 'C'
+  phraseIds[pIndex] = phraseId
   octaves[pIndex] = []
   noteLengths[pIndex] = []
   reverbs[pIndex] = []
@@ -534,7 +517,10 @@ const duplicatePhrase = (e) => {
   e.preventDefault()
 
   let pIndex = parseInt(e.target.id.slice(9))
-  let encodedPhrase = encodePhrase(pIndex)
+  let encodedPhrase = encodePhrase(pIndex, true)
+
+  if (encodedPhrase === null || encodedPhrase === undefined) return
+
   let current = encodeAll()
 
   setEncodes(current.concat('|', encodedPhrase))
@@ -552,6 +538,8 @@ const setEncodes = (newEncoding) => {
   let now = newEncoding || encodeAll()
   encoded = now
   history.replaceState(null, '', `?p=${now}`)
+  let r = document.querySelector('#rep')
+  if (r) r.value = now
 }
 
 const deletePhrase = (e) => {
@@ -564,13 +552,8 @@ const deletePhrase = (e) => {
   let parts = encodeAll().split('|')
 
   parts.splice(pIndex + 2, 1) // account for "sequence" and "name" data at position 0 of url parts
-  parts[1] = parts[1].replaceAll((pIndex + 1).toString(16).toUpperCase().padStart(2, '0'), '') // remove from sequence too
-  parts[1] = parts[1].match(/.{1,2}/g)
-                     .map(n => parseInt(n, 16))
-                     .filter(n => n !== pIndex + 1)
-                     .map(n => n > pIndex + 1 ? n - 1 : n)
-                     .map(n => n.toString(16).toUpperCase().padStart(2, '0'))
-                     .join('')
+  parts[1] = parts[1].replaceAll((phraseIds[pIndex]).toString(16).toUpperCase().padStart(2, '0'), '') // remove from sequence too
+
   if (!parts[1])
     parts[1] = '01'
 
@@ -593,7 +576,7 @@ const createGrids = () => {
     let phraseNo = document.createElement('div')
     phraseNo.style.marginBottom = '0.5em'
     phraseNo.style.display = 'inline-block'
-    phraseNo.innerText = pIndex + 1
+    phraseNo.innerText = phraseIds[pIndex]
 
     let bpmContainer = document.createElement('div')
 
@@ -628,10 +611,9 @@ const createGrids = () => {
       keySelect.add(keyOpt)
     })
 
-    let dupButton = document.createElement('a')
-    dupButton.className = 'noStyle dupPhrase'
-    dupButton.href = '#'
-    dupButton.innerText = '⧉'
+    let dupButton = document.createElement('button')
+    dupButton.className = 'dupPhrase'
+    dupButton.innerText = 'duplicate'
     dupButton.id = `dupphrase${pIndex}`
     dupButton.onclick = duplicatePhrase
 
@@ -729,6 +711,11 @@ const setInsts = () => {
     tones[pIndex].forEach((tone, index) => {
       let inst = document.querySelector(`#inst${pIndex}-${index}`)
       inst.value = tone
+
+      if (tone === 5) {
+        document.querySelector(`#octave${pIndex}-${index}`).disabled = true
+        document.querySelector(`#notelength${pIndex}-${index}`).disabled = true
+      }
     })
   })
 }
@@ -815,6 +802,8 @@ const remakeSequenceSelects = () => {
 
   while (sequenceSteps.firstChild) sequenceSteps.removeChild(sequenceSteps.lastChild)
 
+  console.log(phraseIds)
+
   sequence.concat('-').forEach((ps, index) => {
     let select = document.createElement('select')
     select.className = 'step'
@@ -824,10 +813,10 @@ const remakeSequenceSelects = () => {
     opt.text = '-'
     select.add(opt)
 
-    for (let i = 1; i <= pData.length; i++) {
+    for (let i = 0; i < pData.length; i++) {
       let opt = document.createElement('option')
-      opt.value = i
-      opt.text = i
+      opt.value = phraseIds[i]
+      opt.text = phraseIds[i]
       select.add(opt)
     }
 
@@ -844,12 +833,15 @@ const init = () => {
   pData = []
   tones = []
   rootNotes = []
+  phraseIds = []
   octaves = []
   noteLengths = []
   reverbs = []
   volumes = []
   pans = []
   sequence = []
+
+  let fromParam = false
 
   if (encoded === null || encoded === undefined || encoded.length === 0) {
     const params = (new URL(document.location)).searchParams
@@ -878,6 +870,8 @@ const init = () => {
       const pattern = patterns.shift()
       bpms[pIndex] = parseInt(pattern.slice(0, 2), 16)
       rootNotes[pIndex] = Object.keys(noteNamesAndFreqs)[parseInt(pattern[2], 16)]
+      phraseIds[pIndex] = parseInt(pattern.slice(3, 5), 16)
+      
       pData[pIndex] = []
       tones[pIndex] = []
       octaves[pIndex] = []
@@ -930,6 +924,7 @@ const init = () => {
     bpms[0] = 110
     tones[0] = [1]
     rootNotes[0] = 'C'
+    phraseIds[0] = 1
     octaves[0] = [3]
     noteLengths[0] = [1.0]
     reverbs[0] = [0]
@@ -953,6 +948,7 @@ const init = () => {
   generateSampleTones()
   generateSound(null, true, false)
   gatherColumns2()
+  setEncodes()
 
   document.onkeydown = (e) => {
     if (e.keyCode === 32) {
@@ -993,7 +989,7 @@ const init = () => {
 
     const newFile = URL.createObjectURL(bufferToWave(buffer, buffer.length))
     e.target.href = newFile
-    e.target.download = `${name}.wav`
+    e.target.download = `${name || "quickloop"}.wav`
   }
 }
 
@@ -1041,19 +1037,23 @@ const assignCellClicks = () => {
   })
 }
 
-const prepareDownload = () => {
-  const newFile = URL.createObjectURL(bufferToWave(buffer, buffer.length))
-  const link = document.querySelector('#download')
-  link.href = newFile
-  link.download = `${name}.wav`
-}
-
-const encodePhrase = (pIndex) => {
+const encodePhrase = (pIndex, newPhraseId = false) => {
   let phrase = pData[pIndex]
   let beatString = ''
 
   beatString = beatString.concat(bpms[pIndex].toString(16).toUpperCase().padStart(2, '0'))
   beatString = beatString.concat(Object.keys(noteNamesAndFreqs).indexOf(rootNotes[pIndex]).toString(16))
+
+  if (newPhraseId) {
+    const largestPhraseId = phraseIds.sort((a, b) => a - b)[phraseIds.length - 1]
+
+    if (largestPhraseId === 255) return
+
+    beatString = beatString.concat((largestPhraseId + 1).toString(16).toUpperCase().padStart(2, '0'))
+  } else {
+    beatString = beatString.concat(phraseIds[pIndex].toString(16).toUpperCase().padStart(2, '0'))
+  }
+
   beatString = beatString.concat(';')
 
   phrase.forEach((data, index) => {
@@ -1086,6 +1086,7 @@ const encodeAll = () => {
   pData.forEach((phrase, pIndex) => {
     beatString = beatString.concat(bpms[pIndex].toString(16).toUpperCase().padStart(2, '0'))
     beatString = beatString.concat(Object.keys(noteNamesAndFreqs).indexOf(rootNotes[pIndex]).toString(16))
+    beatString = beatString.concat(phraseIds[pIndex].toString(16).toUpperCase().padStart(2, '0'))
     beatString = beatString.concat(';')
 
     phrase.forEach((data, index) => {
@@ -1110,31 +1111,6 @@ const encodeAll = () => {
   })
 
   return beatString.slice(0, -1)
-}
-
-const generateNoteFrequency = (multiplier, root) => {
-  let val = root
-
-  for (let i = 0; i < multiplier; i++) {
-    val = val * toneConstant
-  }
-
-  return parseInt(val)
-}
-
-const waveFunction = (i) => {
-  switch (i) {
-    case 0:
-      return squareSample
-    case 1:
-      return sineSample
-    case 2:
-      return triangleSample
-    case 3:
-      return fuzzSample
-    default:
-      return squareSample
-  }
 }
 
 const generateSound = (pIndex, sequenceChanged=false, enableSave=true) => {
@@ -1195,10 +1171,22 @@ const generateSampleTones = () => {
         let localIndex = 0
         let waveIndex = 0
         let lengthOffset = (1.0 - noteLengths[i][j]) * subBufferSize
+        let isDrum = tones[i][j] === 5
 
         while (localIndex + lengthOffset < subBufferSize) {
-          let sampleL = waveFunction(tones[i][j])(waveIndex, samplesPerWave)
-          let sampleR = waveFunction(tones[i][j])(waveIndex, samplesPerWave)
+          let sampleL, sampleR
+
+          if (isDrum) {
+            let dv = drums.kick[k][localIndex]
+
+            if (dv === null || dv === undefined) dv = 0.0
+
+            sampleL = dv
+            sampleR = dv
+          } else {
+            sampleL = waveFunction(tones[i][j])(waveIndex, samplesPerWave)
+            sampleR = waveFunction(tones[i][j])(waveIndex, samplesPerWave)
+          }
 
           sampleL = sampleL * volumes[i][j] * (1 - pans[i][j] / 4)
           sampleR = sampleR * volumes[i][j] * (pans[i][j] / 4)
@@ -1230,7 +1218,7 @@ const generateSampleTones = () => {
           if (waveIndex >= samplesPerWave) waveIndex = 0
         }
 
-        let realBufferSize = subBufferSize
+        let realBufferSize = someArrayL.length
         let pBuffer = audioCtx().createBuffer(2, realBufferSize, sampleRate)
         let bufferingL = pBuffer.getChannelData(0)
         let bufferingR = pBuffer.getChannelData(1)
@@ -1299,13 +1287,14 @@ const generatePhraseBuffers = (specificPhrase) => {
           let rampIn = true
           let rampOut = true
           let localIndex = 0
+          let isDrum = tones[pIndex][gridIndex] === 5
 
-          if (beatIndex === lastIndex + 1) {
+          if (beatIndex === lastIndex + 1 && !isDrum) {
             localIndex = carryover
             rampIn = false
           }
 
-          if (phraseData[beatIndex + 1] !== undefined && phraseData[beatIndex + 1] !== null) {
+          if (phraseData[beatIndex + 1] !== undefined && phraseData[beatIndex + 1] !== null && !isDrum) {
             rampOut = false
           }
 
@@ -1316,6 +1305,7 @@ const generatePhraseBuffers = (specificPhrase) => {
           samplesPerWave = parseInt(sampleRate / freq)
 
           while (localIndex + lengthOffset < subBufferSize) {
+            let sampleL, sampleR
             let valueL, valueR
 
             if (tempL) {
@@ -1326,8 +1316,17 @@ const generatePhraseBuffers = (specificPhrase) => {
               valueR = someArrayR[bufferPointer + localIndex] || 0.0
             }
 
-            let sampleL = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
-            let sampleR = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
+            if (isDrum) {
+              let dv = drums.kick[noteIndex][localIndex]
+
+              if (dv === null || dv === undefined) dv = 0.0
+
+              sampleL = dv
+              sampleR = dv
+            } else {
+              sampleL = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
+              sampleR = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
+            }
 
             sampleL = sampleL * volumes[pIndex][gridIndex] * (1 - pans[pIndex][gridIndex] / 4)
             sampleR = sampleR * volumes[pIndex][gridIndex] * (pans[pIndex][gridIndex] / 4)
@@ -1373,7 +1372,7 @@ const generatePhraseBuffers = (specificPhrase) => {
 
           if (!rampOut) {
             while (waveIndex < samplesPerWave) {
-              let valueL, valueR
+              let valueL, valueR, sampleL, sampleR
 
               if (tempL) {
                 valueL = tempL[bufferPointer + localIndex] || 0.0
@@ -1383,8 +1382,17 @@ const generatePhraseBuffers = (specificPhrase) => {
                 valueR = someArrayR[bufferPointer + localIndex] || 0.0
               }
 
-              let sampleL = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
-              let sampleR = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
+              if (isDrum) {
+                let dv = drums.kick[noteIndex][localIndex]
+
+                if (dv === null || dv === undefined) dv = 0.0
+
+                sampleL = dv
+                sampleR = dv
+              } else {
+                sampleL = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
+                sampleR = waveFunction(tones[pIndex][gridIndex])(waveIndex, samplesPerWave)
+              }
 
               sampleL = sampleL * volumes[pIndex][gridIndex] * (1 - pans[pIndex][gridIndex] / 4)
               sampleR = sampleR * volumes[pIndex][gridIndex] * (pans[pIndex][gridIndex] / 4)
@@ -1495,7 +1503,7 @@ const generateSequence = (sequenceChanged=false, enableSave=true) => {
   totalMillis = 0
 
   if (sequenceChanged || !buffer) {
-    let len = sequence.reduce((acc, seqNo) => acc = acc + phraseBuffers[seqNo - 1].length, 0)
+    let len = sequence.reduce((acc, seqNo) => acc = acc + phraseBuffers[phraseIds.indexOf(seqNo)].length, 0)
     buffer = audioCtx().createBuffer(2, len, sampleRate)
   }
 
@@ -1510,7 +1518,7 @@ const generateSequence = (sequenceChanged=false, enableSave=true) => {
   }
 
   sequence.forEach((seqNo, index) => {
-    let pIndex = seqNo - 1
+    let pIndex = phraseIds.indexOf(seqNo)
     let pbpm = bpms[pIndex]
     let beatsPerSecond = pbpm / 60.0
     let secondsPerBeat = 1.0 / beatsPerSecond
@@ -1542,39 +1550,6 @@ const generateSequence = (sequenceChanged=false, enableSave=true) => {
   }
 }
 
-const squareSample = (index, samplesPerWave, multiplier = 1.0) => {
-  return (index <= parseInt(samplesPerWave / 2) ? 0.4 : -0.4) * multiplier
-}
-
-const fuzzSample = (index, samplesPerWave, multiplier = 1.0) => {
-  let value = Math.random() - 0.5 
-  return (index <= parseInt(samplesPerWave / 2) ? value : -value) * multiplier * 0.5
-}
-
-const triangleSample = (index, samplesPerWave, multiplier = 1.0) => {
-  const halfSamples = parseInt(samplesPerWave / 2)
-  const quarterSamples = parseInt(samplesPerWave / 4)
-  const ramp = 1.0 / quarterSamples
-
-  if (index <= halfSamples) {
-    if (index <= quarterSamples) {
-      return index * ramp * multiplier
-    } else {
-      return (halfSamples - index) * ramp * multiplier
-    }
-  } else {
-    if (index <= halfSamples + quarterSamples) {
-      return -((index - halfSamples) * ramp) * multiplier
-    } else {
-      return -((samplesPerWave - index) * ramp) * multiplier
-    }
-  }
-}
-
-const sineSample = (index, samplesPerWave, multiplier = 1.0) => {
-  return Math.sin(index / (samplesPerWave / (Math.PI * 2))) * multiplier
-}
-
 let timerId
 let timerStart
 let lastPlayheadPhrase
@@ -1588,7 +1563,7 @@ const highlightColumn = () => {
   const millis = elapsedTime % totalMillis
 
   sequenceIndex = timeStops.findIndex(n => millis < n)
-  phraseIndex = sequence[sequenceIndex] - 1
+  phraseIndex = phraseIds.indexOf(sequence[sequenceIndex])
 
   const index = Math.floor((millis - (timeStops[sequenceIndex - 1] || 0)) / millisPer16ths[sequenceIndex]) % 16
 

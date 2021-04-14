@@ -2,53 +2,8 @@ let audioCtx
 let bufferSource
 let nowPlaying = null // id of the tune that is currently playing
 let afterStop = null // callback to do work after bufferSource "onended" callback triggers
-
-const toneConstant = 1.059463
-const sampleRate = 22050
-const noteNamesAndFreqs = {
-  C: 262,
-  'C#': 277,
-  D: 294,
-  'D#': 311,
-  E: 330,
-  F: 349,
-  'F#': 370,
-  G: 392,
-  'G#': 415,
-  A: 440,
-  'A#': 466,
-  B: 494
-}
-
-const forEach = (array, callback, scope) => {
-  for (let i = 0; i < array.length; i++) {
-    callback.call(scope, i, array[i])
-  }
-}
-
-const toneClass = (index) => {
-  switch (index) {
-    case 0:
-      return 'red'
-    case 1:
-      return 'blue'
-    case 2:
-      return 'green'
-    case 3:
-      return 'orange'
-    case 4:
-      return 'purple'
-  }
-}
-
-const generateNoteFrequency = (multiplier, root) => {
-  let val = root
-
-  for (let i = 0; i < multiplier; i++) {
-    val = val * toneConstant
-  }
-
-  return parseInt(val)
+let drums = {
+  kick: kicks()
 }
 
 const generateNotes = (octave, rootNote) => {
@@ -98,6 +53,7 @@ const parse = (rep, id) => {
 
     phrase.bpm = parseInt(pattern.slice(0, 2), 16)
     phrase.rootNote = Object.keys(noteNamesAndFreqs)[parseInt(pattern[2], 16)]
+    phrase.id = parseInt(pattern.slice(3, 5), 16)
 
     patterns.forEach((pattern, index) => {
       let grid = {}
@@ -143,8 +99,8 @@ const generateSound = (data) => {
 }
 
 const generatePhraseBuffers = (data) => {
-  let phraseBuffers = []
-  let bufferSizes = []
+  let phraseBuffers = {}
+  let bufferSizes = {}
   let beatsPerMeasure = 4
 
   data.phrases.forEach((phrase, pIndex) => {
@@ -194,13 +150,14 @@ const generatePhraseBuffers = (data) => {
           let rampOut = true
           let waveIndex = 0
           let lengthOffset = (1.0 - gridData.noteLength) * subBufferSize
+          let isDrum = gridData.tone === 5
 
-          if (beatIndex === lastIndex + 1) {
+          if (beatIndex === lastIndex + 1 && !isDrum) {
             localIndex = carryover
             rampIn = false
           }
 
-          if (gridData.pattern[beatIndex + 1] !== undefined && gridData.pattern[beatIndex + 1] !== null) {
+          if (gridData.pattern[beatIndex + 1] !== undefined && gridData.pattern[beatIndex + 1] !== null && !isDrum) {
             rampOut = false
           }
 
@@ -208,7 +165,7 @@ const generatePhraseBuffers = (data) => {
           samplesPerWave = parseInt(sampleRate / freq)
 
           while (localIndex + lengthOffset < subBufferSize) {
-            let valueL, valueR
+            let valueL, valueR, sampleL, sampleR
 
             if (tempL) {
               valueL = tempL[bufferPointer + localIndex] || 0.0
@@ -218,8 +175,17 @@ const generatePhraseBuffers = (data) => {
               valueR = someArrayR[bufferPointer + localIndex] || 0.0
             }
 
-            let sampleL = waveFunction(gridData.tone)(waveIndex, samplesPerWave)
-            let sampleR = waveFunction(gridData.tone)(waveIndex, samplesPerWave)
+            if (isDrum) {
+              let dv = drums.kick[noteIndex][localIndex]
+
+              if (dv === null || dv === undefined) dv = 0.0
+
+              sampleL = dv
+              sampleR = dv
+            } else {
+              sampleL = waveFunction(gridData.tone)(waveIndex, samplesPerWave)
+              sampleR = waveFunction(gridData.tone)(waveIndex, samplesPerWave)
+            }
 
             sampleL = sampleL * gridData.volume * (1 - gridData.pan / 4)
             sampleR = sampleR * gridData.volume * (gridData.pan / 4)
@@ -264,7 +230,7 @@ const generatePhraseBuffers = (data) => {
 
           if (!rampOut) {
             while (waveIndex < samplesPerWave) {
-              let valueL, valueR
+              let valueL, valueR, sampleL, sampleR
 
               if (tempL) {
                 valueL = tempL[bufferPointer + localIndex] || 0.0
@@ -274,8 +240,17 @@ const generatePhraseBuffers = (data) => {
                 valueR = someArrayR[bufferPointer + localIndex] || 0.0
               }
 
-              let sampleL = waveFunction(gridData.tone)(waveIndex, samplesPerWave)
-              let sampleR = waveFunction(gridData.tone)(waveIndex, samplesPerWave)
+              if (isDrum) {
+                let dv = drums.kick[noteIndex][localIndex]
+
+                if (dv === null || dv === undefined) dv = 0.0
+
+                sampleL = dv
+                sampleR = dv
+              } else {
+                sampleL = waveFunction(gridData.tone)(waveIndex, samplesPerWave)
+                sampleR = waveFunction(gridData.tone)(waveIndex, samplesPerWave)
+              }
 
               sampleL = sampleL * gridData.volume * (1 - gridData.pan / 4)
               sampleR = sampleR * gridData.volume * (gridData.pan / 4)
@@ -359,7 +334,7 @@ const generatePhraseBuffers = (data) => {
         }
       }
 
-      bufferSizes[pIndex] = someArrayL.length
+      bufferSizes[phrase.id] = someArrayL.length
 
       if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)()
@@ -375,7 +350,7 @@ const generatePhraseBuffers = (data) => {
         bufferingR[m] = someArrayR[m]
       }
 
-      phraseBuffers[pIndex] = buffer
+      phraseBuffers[phrase.id] = buffer
     })
   })
 
@@ -395,14 +370,15 @@ const generateSequence = (phraseData, bufferData) => {
   let millisPer16ths = []
   let totalMillis = 0
 
-  let len = phraseData.sequence.reduce((acc, seqNo) => acc = acc + bufferData.bufferSizes[seqNo - 1], 0)
+  let len = phraseData.sequence.reduce((acc, seqNo) => acc = acc + bufferData.bufferSizes[seqNo], 0)
+
   let buffer = audioCtx.createBuffer(2, len, sampleRate)
 
   bufferingL = buffer.getChannelData(0)
   bufferingR = buffer.getChannelData(1)
 
   phraseData.sequence.forEach((seqNo, index) => {
-    let pIndex = seqNo - 1
+    let pIndex = phraseData.phrases.findIndex((p) => p.id === seqNo)
     let phrase = phraseData.phrases[pIndex]
     let pbpm = phrase.bpm
     let beatsPerSecond = pbpm / 60.0
@@ -411,8 +387,8 @@ const generateSequence = (phraseData, bufferData) => {
     let millis = Math.round(seconds * 1000)
     let interval = Math.round(millis / 16)
 
-    let bufferSize = bufferData.bufferSizes[pIndex]
-    let phraseBuffer = bufferData.phraseBuffers[pIndex]
+    let bufferSize = bufferData.bufferSizes[phrase.id]
+    let phraseBuffer = bufferData.phraseBuffers[phrase.id]
     let phraseBufferingL = phraseBuffer.getChannelData(0)
     let phraseBufferingR = phraseBuffer.getChannelData(1)
 
@@ -428,54 +404,7 @@ const generateSequence = (phraseData, bufferData) => {
     offset += bufferSize
   })
 
-  return { buffer, totalMillis, timeStops, millisPer16ths, sequence: phraseData.sequence }
-}
-
-const waveFunction = (i) => {
-  switch (i) {
-    case 0:
-      return squareSample
-    case 1:
-      return sineSample
-    case 2:
-      return triangleSample
-    case 3:
-      return fuzzSample
-    default:
-      return squareSample
-  }
-}
-
-const squareSample = (index, samplesPerWave, multiplier = 1.0) => {
-  return (index <= parseInt(samplesPerWave / 2) ? 0.5 : -0.5) * multiplier
-}
-
-const fuzzSample = (index, samplesPerWave, multiplier = 1.0) => {
-  return (index <= parseInt(samplesPerWave / 2) ? Math.random() : Math.random() - 1) * multiplier
-}
-
-const triangleSample = (index, samplesPerWave, multiplier = 1.0) => {
-  const halfSamples = parseInt(samplesPerWave / 2)
-  const quarterSamples = parseInt(samplesPerWave / 4)
-  const ramp = 1.0 / quarterSamples
-
-  if (index <= halfSamples) {
-    if (index <= quarterSamples) {
-      return index * ramp * multiplier
-    } else {
-      return (halfSamples - index) * ramp * multiplier
-    }
-  } else {
-    if (index <= halfSamples + quarterSamples) {
-      return -((index - halfSamples) * ramp) * multiplier
-    } else {
-      return -((samplesPerWave - index) * ramp) * multiplier
-    }
-  }
-}
-
-const sineSample = (index, samplesPerWave, multiplier = 1.0) => {
-  return Math.sin(index / (samplesPerWave / (Math.PI * 2))) * multiplier
+  return { buffer, totalMillis, timeStops, millisPer16ths, sequence: phraseData.sequence, phrases: phraseData.phrases }
 }
 
 const togglePlay = (id) => {
@@ -587,7 +516,8 @@ const highlightColumn = () => {
   const millis = elapsedTime % loaded.totalMillis
 
   sequenceIndex = loaded.timeStops.findIndex(n => millis < n)
-  phraseIndex = loaded.sequence[sequenceIndex] - 1
+  let sequenceId = loaded.sequence[sequenceIndex]
+  phraseIndex = loaded.phrases.findIndex((p) => p.id === sequenceId )
 
   const index = Math.floor((millis - (loaded.timeStops[sequenceIndex - 1] || 0)) / loaded.millisPer16ths[sequenceIndex]) % 16
 
@@ -621,3 +551,4 @@ const finishTimer = () => {
   lastPlayheadIndex = null
   lastSequenceIndex = null
 }
+

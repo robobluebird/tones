@@ -1,9 +1,19 @@
 <% width = '1em' unless width %>
-<a class="noStyle" href="<%= url %>">
-  <div style="display: inline-block;" class="minilookContainer">
+<% xtraStyle = '' unless xtraStyle %>
+<% if url %>
+  <a class="noStyle" href="<%= url %>">
+    <div style="display: inline-block;<%= xtraStyle %>" class="minilookContainer">
+      <input type="hidden" value="<%= look %>" />
+      <div class="minilook" style="width: <%= width %>">
+        <% (16 * 16).times do |i| %><div class="lookCell"><div class="lookCellHeight"></div></div><% end %>
+      </div>
+    </div>
+  </a>
+<% else %>
+  <div style="display: inline-block;<%= xtraStyle %>" class="minilookContainer">
     <input type="hidden" value="<%= look %>" />
     <div class="minilook" style="width: <%= width %>">
       <% (16 * 16).times do |i| %><div class="lookCell"><div class="lookCellHeight"></div></div><% end %>
     </div>
   </div>
-</a>
+<% end %>

@@ -3,6 +3,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="/tones.css" rel="stylesheet" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <script src="/common.js"></script>
     <script src="/audio.js"></script>
     <script src="/unmute.min.js"></script>
     <script src="/bufferToWave.js"></script>
@@ -18,10 +19,8 @@
           <a id="ql" style="font-size: 1em;" href="/">QL</a>
         </div>
         <div class="col right">
-          <% if current_user %>
-            <a class="spaceRight" style="font-size: 1.0em;" href="/tunes/new">new</a>
-          <% end %>
-          <% if !request.path.include?('/users/new') %>
+          <a class="spaceRight" style="font-size: 1.0em;" href="/tunes/new">new tune</a>
+          <% if !request.path.include?('/users/new') && !request.path.include?('/posts') %>
             <a class="spaceRight" href="/posts">posts</a>
           <% end %>
           <% if current_user %>

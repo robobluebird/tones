@@ -56,7 +56,7 @@
           </div>
         <% end %>
         <% if p.look && p.look.length > 0 %>
-          <%= erb :minilook, locals: {width: '8em', look: p.look, url: "#"} %>
+          <%= erb :minilook, locals: {width: '8em', look: p.look, url: nil} %>
         <% end %>
         <div class="text" id="text<%= p.id %>">
           <% p.parsed.each do |bp| %><% if bp.first == :q %><div class="quote"><%= bp.last %></div><% else %><span><%= bp.last %></span><% end %>
@@ -165,7 +165,7 @@
         let data = JSON.parse(this.responseText)
         document.querySelector(`#replies${postId}`).insertAdjacentHTML('beforeend', data.postHtml)
         document.querySelector(`#quote${postId}-${data.id}`).onclick = quoteClick
-        let ml = document.querySelector(`#reply${data.id} .minilookContainer`)
+        let ml = [...document.querySelectorAll(`#reply${data.id} .minilookContainer`)]
         layoutMinilooks(ml)
 
         forEach(document.querySelectorAll('.drawSomethingHolder'), (i, d) => {

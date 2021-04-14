@@ -11,14 +11,12 @@
     <% if look == '' || look.nil? %>
       <p>Create an icon for your profile by painting in the 16x16 grid below. Or, <a href="/">skip this.</a> You can do it later from your profile page.</p>
     <% end %>
-    <select onchange="showColor(this)" id="palette">
-      <% %w(red lightred darkred orange orangered darkorange yellow lightyellow gold green lightgreen darkgreen blue lightblue darkblue purple lightpurple darkpurple pink lightpink gray lightgray black brown lightbrown white).each do |c| %>
-        <option value="<%= c %>"><%= c %></option>
-      <% end %>
-    </select>
-    <div id="colorCell" class="colorCell">
-      <div class="lookCellHeight"></div>
-    </div>
+    <p class="paintHint">Single tap/click to paint one pixel. Double tap/click + drag to paint many. Start painting on same color to erase.</p>
+    <% %w(red lightred darkred orange orangered darkorange yellow lightyellow gold green lightgreen darkgreen blue lightblue darkblue purple lightpurple darkpurple pink lightpink gray lightgray black brown lightbrown white).each_with_index do |c, i| %>
+      <div data-color="<%= c %>" class="colorCell <%= c %> <%= 'selected' if i == 0 %>">
+        <div class="lookCellHeight"></div>
+      </div> 
+    <% end %>
   </div>
 <% end %>
 <div class="look noselect">
@@ -37,6 +35,9 @@
   let color = 'red'
   let painting = false
   let mouseDown = false
+  let tappedOnce = false
+  let tappedTwice = false
+  let tapTime = null
   let rep = "<%= look %>"
 
   const encode = () => {
@@ -114,12 +115,6 @@
        })
   }
 
-  const showColor = (e) => {
-    document.querySelector('#colorCell').classList.remove(...colors)
-    document.querySelector('#colorCell').classList.add(e.value)
-    color = e.value
-  }
-
   const startDrag = (e) => {
     e.preventDefault()
 
@@ -150,26 +145,95 @@
 
   const hookup = () => {
     forEach(document.querySelectorAll('.lookCell'), (i, cell) => {
-      cell.onmousedown = startDrag
-      cell.onmousemove = maybePaint
+      cell.onmousedown = (e) => {
+        e.preventDefault()
+
+        let justTappedTwice = false
+
+        if (tappedOnce) {
+          if (Date.now() - tapTime < 200) {
+            tappedTwice = true
+            justTappedTwice = true
+          } else {
+            tappedOnce = false
+            tappedTwice = false
+            tapTime = null
+          }
+        } else {
+          tappedOnce = true
+          tapTime = Date.now()
+        }
+
+        mouseDown = true
+
+        if (!justTappedTwice) {
+          if (e.target.classList.contains(color)) {
+            e.target.classList.remove(...colors)
+            painting = false
+          } else {
+            painting = true
+            e.target.classList.remove(...colors)
+            e.target.classList.add(color)
+          }
+        }
+      }
+
+      cell.onmousemove = (e) => {
+        e.preventDefault()
+
+        if (!tappedTwice) {
+          return false
+        }
+
+        if (mouseDown) {
+          if (painting) {
+            e.target.classList.remove(...colors)
+            e.target.classList.add(color)
+          } else {
+            e.target.classList.remove(...colors)
+          }
+        }
+      }
 
       cell.ontouchstart = (e) => {
         e.preventDefault()
 
+        let justTappedTwice = false
+
+        if (tappedOnce) {
+          if (Date.now() - tapTime < 300) {
+            tappedTwice = true
+            justTappedTwice = true
+          } else {
+            tappedOnce = false
+            tappedTwice = false
+            tapTime = null
+          }
+        } else {
+          tappedOnce = true
+          tapTime = Date.now()
+        }
+
         mouseDown = true
 
-        if (e.target.classList.contains(color)) {
-          e.target.classList.remove(...colors)
-          painting = false
-        } else {
-          painting = true
-          e.target.classList.remove(...colors)
-          e.target.classList.add(color)
+        if (!justTappedTwice) {
+          if (e.target.classList.contains(color)) {
+            e.target.classList.remove(...colors)
+            painting = false
+          } else {
+            painting = true
+            e.target.classList.remove(...colors)
+            e.target.classList.add(color)
+          }
         }
       }
 
       cell.ontouchmove = (e) => {
         e.preventDefault()
+
+        if (!tappedTwice) {
+          return false
+        }
 
         let touch = e.touches[0]
         let elem = document.elementFromPoint(touch.clientX, touch.clientY)
@@ -187,15 +251,37 @@
 
     document.onmouseup = (e) => {
       mouseDown = false
+
+      if (tappedTwice) {
+        tappedTwice = false
+        tappedOnce = false
+        tapTime = null
+      }
+
       encode()
     }
 
     document.ontouchend = (e) => {
       mouseDown = false
+
+      if (tappedTwice) {
+        tappedTwice = false
+        tappedOnce = false
+        tapTime = null
+      }
+
       encode()
     }
 
-    showColor({ value: color })
+    forEach(document.querySelectorAll('.colorCell'), (i, c) => {
+      c.onclick = (e) => {
+        forEach(document.querySelectorAll('.colorCell'), (i, d) => {
+          d.classList.remove('selected')
+        })
+        c.classList.add('selected')
+        color = c.getAttribute('data-color')
+      }
+    })
   }
 
   init()

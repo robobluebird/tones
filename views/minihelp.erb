@@ -37,11 +37,17 @@
         btn.disabled = true
         let data = JSON.parse(this.responseText)
         document.querySelector(`#comments${tuneId}`).insertAdjacentHTML('afterbegin', data.commentHtml)
-        let ml = document.querySelector(`#comments${tuneId}`).firstChild.querySelector('.minilookContainer')
+
+        let ml = [...document.querySelector(`#comments${tuneId}`).firstChild.querySelectorAll(':scope .minilookContainer')]
+
         layoutMinilooks(ml)
+
         document.querySelector(`#drawSomethingOpener_tune-${tuneId}`).innerText = 'draw something'
+
         let h = document.querySelector(`#drawSomethingHolder_tune-${tuneId}`)
+
         h.classList.add('hidden')
+
         forEach(h.querySelectorAll(':scope .lookCell'), (i, c) => {
           c.classList.remove(...colors)
         })

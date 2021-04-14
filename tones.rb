@@ -129,6 +129,12 @@ helpers do
     end
   end
 
+  def get_remix_id tune_id, user_id
+    q = db.execute('select tunes.id from tunes inner join remixes on tunes.remix_id = remixes.id where remixes.tune_id = ? and remixes.user_id = ? limit 1', [tune_id, user_id]).first
+
+    q.first if q
+  end
+
   def current_user 
     if session[:user_id]
       @user ||= User.new db.execute("select id, name, look, last_login from users where id = ?", session[:user_id]).first
@@ -166,7 +172,22 @@ helpers do
   def get_tune id
     q = db.execute("select id, name, rep, length, look, user_id, created_at, updated_at, remix_id from tunes where id = ? limit 1", id).first
 
-    Tune.new(q) if q
+    if q
+      t = Tune.new(q) 
+
+      t.remixes = db.execute('select id, tune_id, user_id, snapshot from remixes where tune_id = ?', t.id).map { |f| Remix.new f }
+
+      if t.remix_id
+        qfres = db.execute('select tunes.id, tunes.name, users.id, users.name, users.look from tunes inner join users on tunes.user_id = users.id inner join remixes on tunes.id = remixes.tune_id where remixes.id = ? limit 1', t.remix_id).first
+
+        qf = Tune.new qfres[0..1]
+        qf.user = User.new qfres[2..4]
+
+        t.remixed_from = qf
+      end
+
+      t
+    end
   end
 
   def get_user id
@@ -369,7 +390,13 @@ class Tune
   def remixed_by? user_id_or_user
     f = user_id_or_user.is_a?(User) ? user_id_or_user.id : user_id_or_user
 
-    !!@remixes.find { |f| f.user_id && f.user_id == f }
+    !!@remixes.find { |r| r.user_id && r.user_id == f }
+  end
+
+  def remix_by user_id_or_user
+    f = user_id_or_user.is_a?(User) ? user_id_or_user.id : user_id_or_user
+
+    @remixes.find { |r| r.user_id && r.user_id == f }
   end
 end
 
@@ -573,7 +600,7 @@ end
 
 post '/login' do
   if !params[:name] || !params[:password] || params[:name].length.zero? || params[:password].length.zero?
-    redirect to("/users/new?name=#{params[:name]}&=e=0")
+    redirect to("/users/new?name=#{params[:name]}&e=0")
   end
 
   f = get_user_by_name params[:name]
@@ -634,6 +661,9 @@ end
 
 get '/tunes/:tune_id' do
   @tune = get_tune params[:tune_id]
+  @remix_id = get_remix_id(@tune.id, current_user.id) if current_user
+
+  puts(@remix_id, @tune.id, current_user.id) if current_user
 
   erb :tune, layout: :tune_layout
 end

@@ -29,9 +29,23 @@
     <% end %>
     <span id="saveNotice">✓</span>
   </div>
+  <div style="display: flex; justify-content: center; padding-top: 0.5em">
+    <% if current_user && current_user.id != @tune.user_id %>
+      <% if @remix_id %>
+        <span>You remixed this tune already! See your remix <a href="/tunes/<%= @remix_id %>">here!</a></span>
+      <% else %>
+        <form method="POST" action="/tunes/<%= @tune.id %>/remix">
+          <input type="hidden" id="rep" name="rep" value="<%= @tune.rep %>" />
+          <input type="hidden" name="authenticity_token" value="<%= env['rack.session'][:csrf] %>" />
+          <input type="submit" value="remix" />
+        </form>
+      <% end %>
+    <% end %>
+  </div>
 </div>
 <div id="mainq">
   <input type="hidden" id="authenticity_token" name="authenticity_token" value="<%= env['rack.session'][:csrf] %>" />
+  <input type="text" id="rep" value="<%= @tune.rep %>" style="display: none;"/>
   <div class="title">sequence</div>
   <div id="sequence">
     <select class="step">
@@ -63,7 +77,9 @@
       <option value=0>sqr</option>
       <option selected value=1>sine</option>
       <option value=2>tri</option>
-      <option value=3>fuzz</option>
+      <option value=3>nois</option>
+      <option value=4>saw</option>
+      <option value=5>drum</option>
     </select>
   </div>
   <div class="inlineBlock">

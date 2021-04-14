@@ -4,14 +4,12 @@
   <input type="hidden" id="inputName_<%= ref_id %>" value="<%= input_name %>" />
   <input name="<%= formName %>" type="hidden" id="freeLookInput_<%= ref_id %>" />
   <div class="lookTools">
-    <select onchange="freeShowColor(this, '<%= ref_id %>')" class="palette">
-      <% %w(red lightred darkred orange orangered darkorange yellow lightyellow gold green lightgreen darkgreen blue lightblue darkblue purple lightpurple darkpurple pink lightpink gray lightgray black brown lightbrown white).each do |c| %>
-        <option value="<%= c %>"><%= c %></option>
-      <% end %>
-    </select>
-    <div id="colorCell_<%= ref_id %>" class="colorCell">
-      <div class="lookCellHeight"></div>
-    </div>
+    <p class="paintHint">Single tap/click to paint one pixel. Double tap/click + drag to paint many. Start painting on same color to erase.</p>
+    <% %w(red lightred darkred orange orangered darkorange yellow lightyellow gold green lightgreen darkgreen blue lightblue darkblue purple lightpurple darkpurple pink lightpink gray lightgray black brown lightbrown white).each_with_index do |c, i| %>
+      <div data-color="<%= c %>" class="colorCell <%= c %> <%= 'selected' if i == 0 %>">
+        <div class="lookCellHeight"></div>
+      </div> 
+    <% end %>
   </div>
   <div id="freeLook_<%= ref_id %>"  class="freeLook look noselect">
     <% (16 * 16).times do |i| %><div class="noselect lookCell <%= (i.to_f / 16).floor.even? ? i.even? ? 'gray4' : 'gray5' : (i.even? ? 'gray5' : 'gray4') %>"><div class="lookCellHeight noselect"></div></div><% end %>

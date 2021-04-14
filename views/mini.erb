@@ -1,7 +1,10 @@
 <div class="tune" id="tune<%= tune.id %>">
+  <a class="download" id="download<%= tune.id %>" style="float: right;" href="#">download</a>
   <div class="secondLine">
-    <a href="/tunes/<%= tune.id %>"><%= tune.name %></a> by <div class="inlineBlock"><a href="/users/<%= tune.user.id %>"><%= tune.user.name %></a><% if tune.user.look %><%= erb :minilook, locals: {width: '16px', look: tune.user.look, url: "/users/#{tune.user.id}/look"} %><% end %></div>
-    <a class="download" id="download<%= tune.id %>" style="float: right;" href="#">download</a>
+    <a href="/tunes/<%= tune.id %>"><%= tune.name %></a>
+  </div>
+  <div class="secondLine">
+    by <div class="inlineBlock"><a href="/users/<%= tune.user.id %>"><%= tune.user.name %></a><% if tune.user.look %><%= erb :minilook, locals: {width: '16px', look: tune.user.look, url: "/users/#{tune.user.id}/look"} %><% end %></div>
   </div>
   <a class="tuneAnchor" id="q<%= tune.id %>"></a>
   <input type="hidden" class="tuneRep" id="tuneRep<%= tune.id %>" value="<%= tune.rep %>" />

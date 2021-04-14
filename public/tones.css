@@ -8,6 +8,15 @@ textarea, select, button, input, label, form {
   font-size: 16px;
 }
 
+.paintHint {
+  font-size: 0.8em;
+}
+
+.copyright {
+  font-size: 0.5em;
+  text-align: right;
+}
+
 .download {
   font-size: 0.8em;
 }
@@ -86,6 +95,11 @@ h1 {
 .colorCell {
   display: inline-block;
   width: 1em;
+  cursor: pointer; 
+}
+
+.colorCell.selected {
+  border: 5px solid black;
 }
 
 .lookCell {
@@ -148,6 +162,7 @@ a.noStyle:active {
 }
 
 .dupPhrase {
+  font-size: 0.8em;
   margin-left: 0.5em;
   vertical-align: middle;
 }
@@ -281,6 +296,7 @@ ul {
 .postInfo, .commentInfo, .replyInfo {
   font-style: italic;
   font-size: 0.8em;
+  clear: both;
 }
 
 .quote {
