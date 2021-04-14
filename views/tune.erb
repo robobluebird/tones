@@ -29,10 +29,10 @@
     <% end %>
     <span id="saveNotice">✓</span>
   </div>
-  <div style="display: flex; justify-content: center; padding-top: 0.5em">
-    <% if current_user && current_user.id != @tune.user_id %>
+  <% if current_user && current_user.id != @tune.user_id && @tune.id %>
+    <div style="display: flex; justify-content: center; padding-top: 0.5em">
       <% if @remix_id %>
-        <span>You remixed this tune already! See your remix <a href="/tunes/<%= @remix_id %>">here!</a></span>
+        <span style="font-size: 0.8em;">You remixed this tune already, see your remix <a href="/tunes/<%= @remix_id %>">here!</a></span>
       <% else %>
         <form method="POST" action="/tunes/<%= @tune.id %>/remix">
           <input type="hidden" id="rep" name="rep" value="<%= @tune.rep %>" />
@@ -40,8 +40,8 @@
           <input type="submit" value="remix" />
         </form>
       <% end %>
-    <% end %>
-  </div>
+    </div>
+  <% end %>
 </div>
 <div id="mainq">
   <input type="hidden" id="authenticity_token" name="authenticity_token" value="<%= env['rack.session'][:csrf] %>" />
