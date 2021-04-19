@@ -540,6 +540,15 @@ const setEncodes = (newEncoding) => {
   history.replaceState(null, '', `?p=${now}`)
   let r = document.querySelector('#rep')
   if (r) r.value = now
+
+  
+  if (tuneIdStr.length > 0) {
+    if (userIdStr.length > 0 && tuneUserIdStr.length > 0 && tuneUserIdStr === userIdStr) {
+      localStorage.setItem(tuneIdStr, now)
+    }
+  } else {
+    localStorage.setItem('new', now)
+  }
 }
 
 const deletePhrase = (e) => {
@@ -802,8 +811,6 @@ const remakeSequenceSelects = () => {
 
   while (sequenceSteps.firstChild) sequenceSteps.removeChild(sequenceSteps.lastChild)
 
-  console.log(phraseIds)
-
   sequence.concat('-').forEach((ps, index) => {
     let select = document.createElement('select')
     select.className = 'step'
@@ -844,13 +851,30 @@ const init = () => {
   let fromParam = false
 
   if (encoded === null || encoded === undefined || encoded.length === 0) {
-    const params = (new URL(document.location)).searchParams
-    const phraseParam = params.get('p')
+    // encoded does not yet exist meaning this is a new tune. Check for local save,
+    // then params
 
-    if (phraseParam !== null && phraseParam !== undefined) {
-      encoded = phraseParam
+    let maybeSaved = localStorage.getItem('new')
+
+    if (maybeSaved) {
+      encoded = maybeSaved
     } else {
-      encoded = ""
+      const params = (new URL(document.location)).searchParams
+      const phraseParam = params.get('p')
+
+      if (phraseParam !== null && phraseParam !== undefined) {
+        encoded = phraseParam
+      } else {
+        encoded = ""
+      }
+    }
+  } else {
+    // encoded exists already which means this is a tune with an id and rep
+    if (tuneUserIdStr.length > 0 && userIdStr.length > 0 && tuneUserIdStr === userIdStr) {
+      // user is creator, load local changes????
+      let maybeSaved = localStorage.getItem(tuneIdStr)
+
+      if (maybeSaved) encoded = maybeSaved
     }
   }
 
@@ -1626,7 +1650,7 @@ const save = () => {
   }
 
   if (tuneIdStr.length > 0) {
-    if (tuneUserIdStr.length === 0 && parseInt(tuneUserIdStr) !== userId) {
+    if (tuneUserIdStr.length === 0 || (parseInt(tuneUserIdStr) !== userId)) {
       console.error("Wrong user.")
       return
     }
@@ -1645,6 +1669,8 @@ const save = () => {
     if (this.readyState != 4) return
     if (this.status == 200) {
       let data = JSON.parse(this.responseText)
+      
+      localStorage.removeItem(method === 'PUT' ? tuneIdSStr : 'new')
 
       if (tuneId) {
         document.querySelector('#save').disabled = true

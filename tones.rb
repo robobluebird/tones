@@ -702,7 +702,8 @@ post '/tunes/:tune_id/remix' do
   t = Time.now.utc.to_s
   name = "#{current_user.name}'s #{q.name} remix"
 
-  rep = q.rep.split '|'
+  rep = params[:rep] ? params[:rep] : q.rep
+  rep = rep.split '|'
   rep[0] = ERB::Util.url_encode name
   rep = rep.join '|'
 
