@@ -545,6 +545,8 @@ const setEncodes = (newEncoding) => {
   if (tuneIdStr.length > 0) {
     if (userIdStr.length > 0 && tuneUserIdStr.length > 0 && tuneUserIdStr === userIdStr) {
       localStorage.setItem(tuneIdStr, now)
+    } else {
+      localStorage.removeItem(tuneIdStr)
     }
   } else {
     localStorage.setItem('new', now)
@@ -994,6 +996,7 @@ const init = () => {
     e.stopPropagation()
   }
   nameInput.onblur = (e) => {
+    let lastName = name
     name = e.target.value
     name = name.replaceAll('|', '')
 
@@ -1003,6 +1006,7 @@ const init = () => {
 
     nameInput.value = name
     setEncodes()
+    if (lastName !== name) maybeShowSave()
   }
 
   let download = document.querySelector('#download')
@@ -1567,6 +1571,10 @@ const generateSequence = (sequenceChanged=false, enableSave=true) => {
     offset += bufferSize
   })
 
+  maybeShowSave(enableSave)
+}
+
+const maybeShowSave = (enableSave = true) => {
   let saveBtn = document.querySelector('#save')
   if (saveBtn && enableSave) {
     saveBtn.disabled = false
@@ -1670,7 +1678,7 @@ const save = () => {
     if (this.status == 200) {
       let data = JSON.parse(this.responseText)
       
-      localStorage.removeItem(method === 'PUT' ? tuneIdSStr : 'new')
+      localStorage.removeItem(method === 'PUT' ? tuneIdStr : 'new')
 
       if (tuneId) {
         document.querySelector('#save').disabled = true
