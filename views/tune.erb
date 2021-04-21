@@ -45,6 +45,19 @@
 </div>
 <div id="mainq">
   <input type="hidden" id="authenticity_token" name="authenticity_token" value="<%= env['rack.session'][:csrf] %>" />
+  <% if !@tune.id %>
+    <h2>
+      new tune
+    </h2>
+  <% else %>
+    <div>
+      <h2 class="inlineBlock">
+        <%= @tune.name %>
+      </h2>
+      by
+      <a href="/users/<%= @tune.user.id %>"><%= @tune.user.name %></a>
+    </div>
+  <% end %>
   <div class="title">sequence</div>
   <div id="sequence">
     <select class="step">

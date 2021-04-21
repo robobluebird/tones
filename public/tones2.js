@@ -1005,8 +1005,16 @@ const init = () => {
     }
 
     nameInput.value = name
+
     setEncodes()
-    if (lastName !== name) maybeShowSave()
+
+    if (lastName !== name) {
+      if (!phraseBuffers || !timeStops) {
+        generateSound(null, true, false)
+      }
+
+      maybeShowSave()
+    }
   }
 
   let download = document.querySelector('#download')

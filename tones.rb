@@ -660,10 +660,11 @@ get '/tunes/new' do
 end
 
 get '/tunes/:tune_id' do
-  @tune = get_tune params[:tune_id]
-  @remix_id = get_remix_id(@tune.id, current_user.id) if current_user
+  @tune = tunes_with_users_and_like_counts(nil, params[:tune_id]).first
 
-  puts(@remix_id, @tune.id, current_user.id) if current_user
+  halt(404) unless @tune
+
+  @remix_id = get_remix_id(@tune.id, current_user.id) if current_user
 
   erb :tune, layout: :tune_layout
 end
