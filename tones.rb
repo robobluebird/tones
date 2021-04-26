@@ -146,7 +146,7 @@ helpers do
   end
 
   def page_size
-    @page_size ||= 2
+    @page_size ||= 10
   end
 
   def page_count

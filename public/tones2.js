@@ -98,7 +98,7 @@ const changeTempo = (e) => {
 
   bpms[pIndex] = parseInt(e.target.value)
 
-  generateSound(pIndex)
+  generateSound(pIndex, true)
 
   if (restart) {
     play()
@@ -1235,7 +1235,6 @@ const generateSound = (pIndex, sequenceChanged=false, enableSave=true) => {
     return
   }
 
-  console.log(pIndex, phraseBuffers)
   if (pIndex !== null && pIndex !== undefined && phraseBuffers.length === 0) pIndex = null
 
   generatePhraseBuffers(pIndex)
