@@ -728,6 +728,8 @@ const createGrids = () => {
 }
 
 const copyGridToPhrase = (e) => {
+  if (e.target.value === '-') return
+
   const indexStr = e.target.id.slice(4)
   const indicies = indexStr.split('-').map(n => parseInt(n))
   const fromPIndex = indicies[0]
