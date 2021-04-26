@@ -3,7 +3,8 @@
     <% if comment.look && comment.look.length > 0 %>
       <%= erb :minilook, locals: {url: nil, xtraStyle: 'float: left; margin: 0 0.5em 0.5em 0;', width: '8em', look: comment.look} %>
     <% end %>
-    <%= comment.body %></div>
+    <%= comment.body %>
+  </div>
   <div class="commentInfo">
     <%= comment.user.name %>
     <% if comment.user.look %>

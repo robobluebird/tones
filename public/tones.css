@@ -1,6 +1,7 @@
-html {
+html, body {
   font-family: monospace;
   font-size: 16px;
+  height: 100%;
 }
 
 textarea, select, button, input, label, form {
@@ -15,10 +16,19 @@ textarea, select, button, input, label, form {
 .copyright {
   font-size: 0.5em;
   text-align: right;
+  flex-shrink: 0;
+  padding-bottom: 1em;
+  margin-top: auto
 }
 
-.download {
-  float: right;
+.copyGrid {
+}
+
+.miniHolder {
+}
+
+.downloadHolder {
+  text-align: right;
 }
 
 .inlineBlock {
@@ -161,12 +171,6 @@ a.noStyle:active {
   color: black;
 }
 
-.dupPhrase {
-  font-size: 0.8em;
-  margin-left: 0.5em;
-  vertical-align: middle;
-}
-
 select {
   appearance: menulist-button;
   -moz-appearance: menulist-button;
@@ -239,6 +243,7 @@ input.error {
 
 .paging.bottom {
   margin-top: 1em;
+  margin-bottom: 1em;
 }
 
 .miniplay {
@@ -418,7 +423,9 @@ textarea {
 }
 
 #main {
-  padding: 1em;
+  padding: 1em 1em 0 1em;
+  display: flex;
+  flex-direction: column;
 }
 
 @media only screen and (min-width: 600px) {
@@ -479,8 +486,12 @@ ol {
   left: 0;
 }
 
-.bpmAndSuch label, .bpmAndSuch input, .bpmAndSuch button {
+.bpmAndSuch label, .bpmAndSuch input, .bpmAndSuch button, .bpmAndSuch select {
   margin: 0 0.2em;
+  font-size: 0.8em;
+}
+
+.bpmAndSuch .dupPhrase, .bpmAndSuch .pasteGrid {
 }
 
 #actions {
@@ -538,9 +549,8 @@ ol {
   margin-bottom: 0.5em;
 }
 
-.gridContainer label, .gridContainer select {
-  margin-left: 0;
-  margin-right: 0;
+.gridContainer label, .gridContainer select, .gridContainer button {
+  font-size: 0.8em;
 }
 
 .delete, .delPhrase {
@@ -675,6 +685,7 @@ body {
   display: inline-block;
   box-sizing: border-box;
   padding: 1px;
+  margin-bottom: 0.5em;
 }
 
 .t .d {
@@ -842,4 +853,7 @@ body {
 
 .proto {
   display: none;
+}
+
+.dupPhrase, .pasteGrid {
 }

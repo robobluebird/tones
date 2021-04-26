@@ -289,7 +289,6 @@ const deleteGrid = (e) => {
   octaves[pIndex].splice(index, 1)
   noteLengths[pIndex].splice(index, 1)
   reverbs[pIndex].splice(index, 1)
-  phraseIds[pIndex].splice(index, 1)
   volumes[pIndex].splice(index, 1)
   pans[pIndex].splice(index, 1)
   notes[pIndex].splice(index, 1)
@@ -341,6 +340,8 @@ const createPhrase = () => {
   phraseContainer.id = `phrase${pIndex}`
 
   let phraseNo = document.createElement('div')
+  phraseNo.className = 'phraseNo'
+  phraseNo.id = `phraseNo${pIndex}`
   phraseNo.innerText = phraseId
   phraseNo.style.display = 'inline-block'
   phraseNo.style.marginBottom = '0.5em'
@@ -442,6 +443,7 @@ const createGrid = (e) => {
   let vol = gridContainer.querySelector('select.volume')
   let pan = gridContainer.querySelector('select.pan')
   let rev = gridContainer.querySelector('select.reverb')
+  let cop = gridContainer.querySelector('select.copy')
 
   gridContainer.classList.remove('proto')
   gridContainer.id = `container${pIndex}-${gridIndex}`
@@ -489,6 +491,8 @@ const createGrid = (e) => {
   pan.onchange = changePan
   rev.id = `reverb${pIndex}-${gridIndex}`
   rev.onchange = changeReverb
+  cop.id = `copy${pIndex}-${gridIndex}`
+  cop.onchange = copyGridToPhrase
 
   phraseContainer.insertBefore(gridContainer, add)
 
@@ -507,6 +511,7 @@ const createGrid = (e) => {
   setNoteLengths()
   setReverbs()
   assignCellClicks()
+  populateGridCopiers()
   generateSound(pIndex)
   generateSampleTones()
   gatherColumns2()
@@ -527,7 +532,7 @@ const duplicatePhrase = (e) => {
   init()
 
   let asdf = [...document.querySelectorAll('.phrase')].pop()
-  asdf.style.backgroundColor = 'rgba(0,255,0,0.1)'
+  asdf.style.backgroundColor = 'rgba(0,255,0,0.5)'
   setTimeout(() => {
     asdf.style.backgroundColor = 'unset'
   }, 1000)
@@ -563,10 +568,10 @@ const deletePhrase = (e) => {
   let parts = encodeAll().split('|')
 
   parts.splice(pIndex + 2, 1) // account for "sequence" and "name" data at position 0 of url parts
-  parts[1] = parts[1].replaceAll((phraseIds[pIndex]).toString(16).toUpperCase().padStart(2, '0'), '') // remove from sequence too
+  parts[1] = parts[1].replaceAll(phraseIds[pIndex].toString(16).toUpperCase().padStart(2, '0'), '') // remove from sequence too
 
   if (!parts[1])
-    parts[1] = '01'
+    parts[1] = phraseIds[0].toString(16).toUpperCase().padStart(2, '0')
 
   setEncodes(parts.join('|'))
   init()
@@ -585,6 +590,8 @@ const createGrids = () => {
     phraseContainer.style.position = 'relative'
 
     let phraseNo = document.createElement('div')
+    phraseNo.className = 'phraseNo'
+    phraseNo.id = `phraseNo${pIndex}`
     phraseNo.style.marginBottom = '0.5em'
     phraseNo.style.display = 'inline-block'
     phraseNo.innerText = phraseIds[pIndex]
@@ -685,6 +692,7 @@ const createGrids = () => {
       let vol = gridContainer.querySelector('select.volume')
       let pan = gridContainer.querySelector('select.pan')
       let rev = gridContainer.querySelector('select.reverb')
+      let cop = gridContainer.querySelector('select.copy')
 
       gridContainer.classList.remove('proto')
       gridContainer.id = `container${pIndex}-${gridIndex}`
@@ -702,6 +710,8 @@ const createGrids = () => {
       pan.onchange = changePan
       rev.id = `reverb${pIndex}-${gridIndex}`
       rev.onchange = changeReverb
+      cop.id = `copy${pIndex}-${gridIndex}`
+      cop.onchange = copyGridToPhrase
 
       phraseContainer.appendChild(gridContainer)
     })
@@ -715,6 +725,47 @@ const createGrids = () => {
     phraseContainer.appendChild(add)
     phrases.appendChild(phraseContainer)
   })
+}
+
+const copyGridToPhrase = (e) => {
+  const indexStr = e.target.id.slice(4)
+  const indicies = indexStr.split('-').map(n => parseInt(n))
+  const fromPIndex = indicies[0]
+  const index = indicies[1]
+  const toPIndex = phraseIds.findIndex(p => p === parseInt(e.target.value))
+  let fromEncodedPhrase = encodePhrase(fromPIndex)
+  let encodedGrid = fromEncodedPhrase.split(';')[index + 1]
+  let toEncodedPhrase = encodePhrase(toPIndex)
+  let parts = encodeAll().split('|')
+
+  toEncodedPhrase = toEncodedPhrase.concat(';', encodedGrid)
+
+  parts[toPIndex + 2] = toEncodedPhrase // factor in "name" and "sequence" parts at start of encoding
+
+  setEncodes(parts.join('|'))
+  init()
+
+  const grid = document.querySelector(`#grid${fromPIndex}-${index}`)
+  document.querySelector(`#phrase${fromPIndex}`).scrollLeft = grid.offsetLeft
+
+  const toPhrase = document.querySelector(`#phrase${toPIndex}`)
+  const newGrid = document.querySelector(`#grid${toPIndex}-${pData[toPIndex].length - 1}`)
+
+  toPhrase.scrollIntoView(false)
+  toPhrase.scrollLeft = newGrid.offsetLeft
+
+  // hightlight phrase id and grid for a lil bit
+
+  let phraseNo = document.querySelector(`#phraseNo${toPIndex}`)
+  const cont = document.querySelector(`#container${toPIndex}-${pData[toPIndex].length - 1}`)
+  
+  cont.style.backgroundColor = 'rgba(0,255,0,0.5)'
+  phraseNo.style.backgroundColor = 'rgba(0,255,0,0.5)'
+  
+  setTimeout(() => {
+    cont.style.backgroundColor = 'unset'
+    phraseNo.style.backgroundColor = 'unset'
+  }, 1000)
 }
 
 const setInsts = () => {
@@ -804,6 +855,32 @@ const changeSequence = (e) => {
   }
 
   setEncodes()
+}
+
+const populateGridCopiers = () => {
+  pData.forEach((phrase, pIndex) => {
+    let pId = phraseIds[pIndex]
+    let pIds = phraseIds.filter(p => p != pId)
+
+    phrase.forEach((gridData, gridIndex) => {
+      let select = document.querySelector(`#copy${pIndex}-${gridIndex}`)
+
+      while (select.firstChild) select.removeChild(select.lastChild)
+
+      let options = pIds.map(id => {
+        let option = document.createElement('option')
+        option.value = id
+        option.text = id
+        return option
+      })
+
+      let option = document.createElement('option')
+      option.text = '-'
+      options.unshift(option)
+
+      options.forEach(opt => select.add(opt))
+    })
+  })
 }
 
 const remakeSequenceSelects = () => {
@@ -971,6 +1048,7 @@ const init = () => {
   remakeSequenceSelects()
   setNoteLengths()
   setReverbs()
+  populateGridCopiers()
   generateSampleTones()
   generateSound(null, true, false)
   gatherColumns2()
@@ -1155,7 +1233,8 @@ const generateSound = (pIndex, sequenceChanged=false, enableSave=true) => {
     return
   }
 
-  if (pIndex && phraseBuffers.length === 0) pIndex = null
+  console.log(pIndex, phraseBuffers)
+  if (pIndex !== null && pIndex !== undefined && phraseBuffers.length === 0) pIndex = null
 
   generatePhraseBuffers(pIndex)
   generateSequence(sequenceChanged, enableSave)
