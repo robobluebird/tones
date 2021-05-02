@@ -22,7 +22,9 @@
           <a id="ql" style="font-size: 1em;" href="/">QL</a>
         </div>
         <div class="col right">
-          <a class="spaceRight" style="font-size: 1.0em;" href="/tunes/new">new tune</a>
+          <% if !request.path.include?('/users/new') %>
+            <a class="spaceRight" style="font-size: 1.0em;" href="/tunes/new">new tune</a>
+          <% end %>
           <% if !request.path.include?('/users/new') && !request.path.include?('/posts') %>
             <a class="spaceRight" href="/posts">posts</a>
           <% end %>

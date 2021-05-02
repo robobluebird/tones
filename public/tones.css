@@ -83,6 +83,8 @@ h1 {
 
 .lookTools {
   margin-bottom: 0.5em;
+  background-color: #EEEEEE;
+  padding: 0.5em;
 }
 
 .lookTools p {

@@ -11,12 +11,12 @@
     <% if look == '' || look.nil? %>
       <p>Create an icon for your profile by painting in the 16x16 grid below. Or, <a href="/">skip this.</a> You can do it later from your profile page.</p>
     <% end %>
-    <p class="paintHint">Single tap/click to paint one pixel. Double tap/click + drag to paint many. Start painting on same color to erase.</p>
-    <% %w(red lightred darkred orange orangered darkorange yellow lightyellow gold green lightgreen darkgreen blue lightblue darkblue purple lightpurple darkpurple pink lightpink gray lightgray black brown lightbrown white).each_with_index do |c, i| %>
+    <% %w(red lightred darkred orange orangered darkorange yellow lightyellow gold green lightgreen darkgreen blue lightblue darkblue purple lightpurple darkpurple pink lightpink gray black brown lightbrown white).each_with_index do |c, i| %>
       <div data-color="<%= c %>" class="colorCell <%= c %> <%= 'selected' if i == 0 %>">
         <div class="lookCellHeight"></div>
       </div> 
     <% end %>
+    <%= erb :minilook, locals: {data_color: 'erase', klass: 'colorCell', url: '#', _id: 'erase', width: '16px', look: '00000100020003000400050006000700080009000A000B000C000D000E000F00100011001E001F00200022002D002F00300033003C003F00400044004B004F00500055005A005F006000660069006F007000770078007F008000870088008F009000960099009F00A000A500AA00AF00B000B400BB00BF00C000C300CC00CF00D000D200DD00DF00E000E100EE00EF00F000F100F200F300F400F500F600F700F800F900FA00FB00FC00FD00FE00FF00'} %>
   </div>
 <% end %>
 <div class="look noselect">
@@ -33,17 +33,15 @@
   let editable = <%= editable %>
   let editNow = <%= editNow %>
   let color = 'red'
-  let painting = false
   let mouseDown = false
-  let tappedOnce = false
-  let tappedTwice = false
-  let tapTime = null
   let rep = "<%= look %>"
+  let actions = []
 
   const encode = () => {
     rep = ""
 
-    forEach(document.querySelectorAll('.lookCell'), (i, cell) => {
+    let all = document.querySelector('.look')
+    forEach(document.querySelectorAll('.look .lookCell'), (i, cell) => {
       let classNames = [...cell.classList.entries()].map(e => e[1])
       let foundColor = classNames.find(c => colors.includes(c))
 
@@ -81,7 +79,8 @@
           document.querySelector('#lookTools').classList.remove('hidden')
           document.querySelector('#lookForm').classList.remove('hidden')
           document.querySelector('.look').classList.add('pointy')
-          forEach(document.querySelectorAll('.lookCell'), (i, cell) => {
+          let all = document.querySelector('.look')
+          forEach(all.querySelectorAll(':scope .lookCell'), (i, cell) => {
             if (Math.floor(i / 16) % 2 === 0) {
               if (i % 2 === 0) {
                 cell.classList.add('gray4')
@@ -103,7 +102,8 @@
   }
 
   const parseRep = () => {
-    let cells = [...document.querySelectorAll('.lookCell')]
+    let all = document.querySelector('.look')
+    let cells = [...all.querySelectorAll(':scope .lookCell')]
 
     rep.match(/.{1,4}/g) // get groups of 4
        .forEach(cellRep => {
@@ -115,82 +115,31 @@
        })
   }
 
-  const startDrag = (e) => {
-    e.preventDefault()
-
-    mouseDown = true
-
-    if (e.target.classList.contains(color)) {
-      e.target.classList.remove(...colors)
-      painting = false
-    } else {
-      painting = true
-      e.target.classList.remove(...colors)
-      e.target.classList.add(color)
-    }
-  }
-
-  const maybePaint = (e) => {
-    e.preventDefault()
-
-    if (mouseDown) {
-      if (painting) {
-        e.target.classList.remove(...colors)
-        e.target.classList.add(color)
-      } else {
-        e.target.classList.remove(...colors)
-      }
-    }
-  }
-
   const hookup = () => {
-    forEach(document.querySelectorAll('.lookCell'), (i, cell) => {
+    let all = document.querySelector('.look')
+    forEach(all.querySelectorAll(':scope .lookCell'), (i, cell) => {
       cell.onmousedown = (e) => {
         e.preventDefault()
 
-        let justTappedTwice = false
-
-        if (tappedOnce) {
-          if (Date.now() - tapTime < 200) {
-            tappedTwice = true
-            justTappedTwice = true
-          } else {
-            tappedOnce = false
-            tappedTwice = false
-            tapTime = null
-          }
-        } else {
-          tappedOnce = true
-          tapTime = Date.now()
-        }
-
         mouseDown = true
-
-        if (!justTappedTwice) {
-          if (e.target.classList.contains(color)) {
-            e.target.classList.remove(...colors)
-            painting = false
-          } else {
-            painting = true
-            e.target.classList.remove(...colors)
-            e.target.classList.add(color)
-          }
+        
+        if (color === 'erase') {
+          e.target.classList.remove(...colors)
+        } else {
+          e.target.classList.remove(...colors)
+          e.target.classList.add(color)
         }
       }
 
       cell.onmousemove = (e) => {
         e.preventDefault()
 
-        if (!tappedTwice) {
-          return false
-        }
-
         if (mouseDown) {
-          if (painting) {
+          if (color === 'erase') {
             e.target.classList.remove(...colors)
-            e.target.classList.add(color)
           } else {
             e.target.classList.remove(...colors)
+            e.target.classList.add(color)
           }
         }
       }
@@ -198,52 +147,28 @@
       cell.ontouchstart = (e) => {
         e.preventDefault()
 
-        let justTappedTwice = false
-
-        if (tappedOnce) {
-          if (Date.now() - tapTime < 300) {
-            tappedTwice = true
-            justTappedTwice = true
-          } else {
-            tappedOnce = false
-            tappedTwice = false
-            tapTime = null
-          }
-        } else {
-          tappedOnce = true
-          tapTime = Date.now()
-        }
-
         mouseDown = true
 
-        if (!justTappedTwice) {
-          if (e.target.classList.contains(color)) {
-            e.target.classList.remove(...colors)
-            painting = false
-          } else {
-            painting = true
-            e.target.classList.remove(...colors)
-            e.target.classList.add(color)
-          }
+        if (color === 'erase') {
+          e.target.classList.remove(...colors)
+        } else {
+          e.target.classList.remove(...colors)
+          e.target.classList.add(color)
         }
       }
 
       cell.ontouchmove = (e) => {
         e.preventDefault()
 
-        if (!tappedTwice) {
-          return false
-        }
-
         let touch = e.touches[0]
         let elem = document.elementFromPoint(touch.clientX, touch.clientY)
 
         if (mouseDown && elem.classList.contains('lookCell')) {
-          if (painting) {
-            elem.classList.remove(...colors)
-            elem.classList.add(color)
+          if (color === 'erase') {
+            e.target.classList.remove(...colors)
           } else {
             elem.classList.remove(...colors)
+            elem.classList.add(color)
           }
         }
       }
@@ -251,33 +176,22 @@
 
     document.onmouseup = (e) => {
       mouseDown = false
-
-      if (tappedTwice) {
-        tappedTwice = false
-        tappedOnce = false
-        tapTime = null
-      }
-
       encode()
     }
 
     document.ontouchend = (e) => {
       mouseDown = false
-
-      if (tappedTwice) {
-        tappedTwice = false
-        tappedOnce = false
-        tapTime = null
-      }
-
       encode()
     }
 
     forEach(document.querySelectorAll('.colorCell'), (i, c) => {
       c.onclick = (e) => {
+        e.preventDefault()
+
         forEach(document.querySelectorAll('.colorCell'), (i, d) => {
           d.classList.remove('selected')
         })
+
         c.classList.add('selected')
         color = c.getAttribute('data-color')
       }

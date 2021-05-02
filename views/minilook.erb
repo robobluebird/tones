@@ -1,7 +1,10 @@
 <% width = '1em' unless width %>
 <% xtraStyle = '' unless xtraStyle %>
+<% _id = '' unless _id %>
+<% klass = nil unless klass %>
+<% data_color = '' unless data_color %>
 <% if url %>
-  <a class="noStyle" href="<%= url %>">
+  <a class="noStyle<%= " #{klass}" if klass %>" data-color="<%= data_color %>" id="<%= _id %>" href="<%= url %>">
     <div style="display: inline-block;<%= xtraStyle %>" class="minilookContainer">
       <input type="hidden" value="<%= look %>" />
       <div class="minilook" style="width: <%= width %>">

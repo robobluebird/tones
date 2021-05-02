@@ -35,8 +35,6 @@
     <%= erb :mini, locals: {tune: tune} %>
   <% end %>
 </div>
-<%= erb :minilookhelp %>
-<%= erb :minihelp %>
 <div class="paging bottom">
   <% if page && page > 1 %>
     <a href="#" onclick="replaceOrAddSearchParam('page', 1); return false;">first</a>
@@ -56,5 +54,7 @@
 </div>
 <div class="copyright">copyright 2021 quickloops.net</div>
 
-<%= erb :free_look_help %>
 <%= erb :page_help %>
+<%= erb :minihelp %>
+<%= erb :minilookhelp %>
+<%= erb :free_look_help %>

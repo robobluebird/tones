@@ -4,12 +4,12 @@
   <input type="hidden" id="inputName_<%= ref_id %>" value="<%= input_name %>" />
   <input name="<%= formName %>" type="hidden" id="freeLookInput_<%= ref_id %>" />
   <div class="lookTools">
-    <p class="paintHint">Single tap/click to paint one pixel. Double tap/click + drag to paint many. Start painting on same color to erase.</p>
-    <% %w(red lightred darkred orange orangered darkorange yellow lightyellow gold green lightgreen darkgreen blue lightblue darkblue purple lightpurple darkpurple pink lightpink gray lightgray black brown lightbrown white).each_with_index do |c, i| %>
+    <% %w(red lightred darkred orange orangered darkorange yellow lightyellow gold green lightgreen darkgreen blue lightblue darkblue purple lightpurple darkpurple pink lightpink gray black brown lightbrown white).each_with_index do |c, i| %>
       <div data-color="<%= c %>" class="colorCell <%= c %> <%= 'selected' if i == 0 %>">
         <div class="lookCellHeight"></div>
       </div> 
     <% end %>
+    <%= erb :minilook, locals: {data_color: 'erase', klass: 'colorCell erase', url: '#', _id: "erase#{ ref_id }", width: '16px', look: '00000100020003000400050006000700080009000A000B000C000D000E000F00100011001E001F00200022002D002F00300033003C003F00400044004B004F00500055005A005F006000660069006F007000770078007F008000870088008F009000960099009F00A000A500AA00AF00B000B400BB00BF00C000C300CC00CF00D000D200DD00DF00E000E100EE00EF00F000F100F200F300F400F500F600F700F800F900FA00FB00FC00FD00FE00FF00'} %>
   </div>
   <div id="freeLook_<%= ref_id %>"  class="freeLook look noselect">
     <% (16 * 16).times do |i| %><div class="noselect lookCell <%= (i.to_f / 16).floor.even? ? i.even? ? 'gray4' : 'gray5' : (i.even? ? 'gray5' : 'gray4') %>"><div class="lookCellHeight noselect"></div></div><% end %>

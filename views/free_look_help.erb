@@ -1,12 +1,8 @@
 <script type="text/javascript">
   let color = 'red'
-  let painting = false
   let mouseDown = false
   let rep = ''
   let encodee
-  let tappedOnce = false
-  let tappedTwice = false
-  let tapTime = null
 
   const freeEncode = (id) => {
     rep = ''
@@ -49,35 +45,6 @@
        })
   }
 
-  const freeStartDrag = (e) => {
-    e.preventDefault()
-
-    mouseDown = true
-    encodee = e.target.parentElement.id.split('_')[1]
-
-    if (e.target.classList.contains(color)) {
-      e.target.classList.remove(...colors)
-      painting = false
-    } else {
-      painting = true
-      e.target.classList.remove(...colors)
-      e.target.classList.add(color)
-    }
-  }
-
-  const freeMaybePaint = (e) => {
-    e.preventDefault()
-
-    if (mouseDown) {
-      if (painting) {
-        e.target.classList.remove(...colors)
-        e.target.classList.add(color)
-      } else {
-        e.target.classList.remove(...colors)
-      }
-    }
-  }
-
   const freeHookup = () => {
     forEach(document.querySelectorAll('.freeLook'), (i, pane) => {
       let id = pane.id.split('_')[1]
@@ -104,6 +71,21 @@
         if (doOpen) {
           e.target.innerText = "don't draw something"
           holder.classList.remove('hidden')
+          let erase = holder.querySelector(':scope .erase')
+          layoutMinilooks([erase])
+          erase.onclick = (e) => {
+            e.preventDefault()
+
+            forEach(document.querySelectorAll('.colorCell'), (i, d) => {
+              d.classList.remove('selected')
+            })
+
+            forEach(document.querySelectorAll(`.colorCell.erase`), (i, d) => {
+              d.classList.add('selected')
+            })
+
+            color = 'erase'
+          }
         }
       }
 
@@ -111,49 +93,25 @@
         cell.onmousedown = (e) => {
           e.preventDefault()
 
-          let justTappedTwice = false
-
-          if (tappedOnce) {
-            if (Date.now() - tapTime < 200) {
-              tappedTwice = true
-              justTappedTwice = true
-            } else {
-              tappedOnce = false
-              tappedTwice = false
-              tapTime = null
-            }
-          } else {
-            tappedOnce = true
-            tapTime = Date.now()
-          }
-
           mouseDown = true
 
-          if (!justTappedTwice) {
-            if (e.target.classList.contains(color)) {
-              e.target.classList.remove(...colors)
-              painting = false
-            } else {
-              painting = true
-              e.target.classList.remove(...colors)
-              e.target.classList.add(color)
-            }
+          if (color === 'erase') {
+            e.target.classList.remove(...colors)
+          } else {
+            e.target.classList.remove(...colors)
+            e.target.classList.add(color)
           }
         }
 
         cell.onmousemove = (e) => {
           e.preventDefault()
 
-          if (!tappedTwice) {
-            return false
-          }
-
           if (mouseDown) {
-            if (painting) {
+            if (color === 'erase') {
               e.target.classList.remove(...colors)
-              e.target.classList.add(color)
             } else {
               e.target.classList.remove(...colors)
+              e.target.classList.add(color)
             }
           }
         }
@@ -161,52 +119,28 @@
         cell.ontouchstart = (e) => {
           e.preventDefault()
 
-          let justTappedTwice = false
-
-          if (tappedOnce) {
-            if (Date.now() - tapTime < 300) {
-              tappedTwice = true
-              justTappedTwice = true
-            } else {
-              tappedOnce = false
-              tappedTwice = false
-              tapTime = null
-            }
-          } else {
-            tappedOnce = true
-            tapTime = Date.now()
-          }
-
           mouseDown = true
 
-          if (!justTappedTwice) {
-            if (e.target.classList.contains(color)) {
-              e.target.classList.remove(...colors)
-              painting = false
-            } else {
-              painting = true
-              e.target.classList.remove(...colors)
-              e.target.classList.add(color)
-            }
+          if (color === 'erase') {
+            e.target.classList.remove(...colors)
+          } else {
+            e.target.classList.remove(...colors)
+            e.target.classList.add(color)
           }
         }
 
         cell.ontouchmove = (e) => {
           e.preventDefault()
 
-          if (!tappedTwice) {
-            return false
-          }
-
           let touch = e.touches[0]
           let elem = document.elementFromPoint(touch.clientX, touch.clientY)
 
           if (mouseDown && elem.classList.contains('lookCell')) {
-            if (painting) {
-              elem.classList.remove(...colors)
-              elem.classList.add(color)
+            if (color === 'erase') {
+              e.target.classList.remove(...colors)
             } else {
               elem.classList.remove(...colors)
+              elem.classList.add(color)
             }
           }
         }
@@ -215,12 +149,6 @@
 
     document.onmouseup = (e) => {
       mouseDown = false
-      
-      if (tappedTwice) {
-        tappedTwice = false
-        tappedOnce = false
-        tapTime = null
-      }
 
       if (encodee) freeEncode(encodee)
     }
@@ -228,18 +156,14 @@
     document.ontouchend = (e) => {
       mouseDown = false
 
-      if (tappedTwice) {
-        tappedTwice = false
-        tappedOnce = false
-        tapTime = null
-      }
-
       if (encodee) freeEncode(encodee)
     }
   }
 
   forEach(document.querySelectorAll('.colorCell'), (i, c) => {
     c.onclick = (e) => {
+      e.preventDefault()
+
       let newColor = c.getAttribute('data-color')
 
       forEach(document.querySelectorAll('.colorCell'), (i, d) => {
