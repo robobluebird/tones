@@ -137,7 +137,7 @@
 
           if (mouseDown && elem.classList.contains('lookCell')) {
             if (color === 'erase') {
-              e.target.classList.remove(...colors)
+              elem.classList.remove(...colors)
             } else {
               elem.classList.remove(...colors)
               elem.classList.add(color)

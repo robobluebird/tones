@@ -7,6 +7,8 @@ require 'time'
 
 include BCrypt
 
+class String; def humanize; self.capitalize; end; end
+
 use Rack::Session::Cookie, :key => 'rack.session',
                            :path => '/',
                            :secret => ENV.fetch('SESSION_SECRET') { SecureRandom.hex(64) }
@@ -15,7 +17,14 @@ use Rack::Protection, permitted_origins: ['http://localhost:4567', 'https://quic
 use Rack::Protection::AuthenticityToken
 use Rack::Protection::RemoteToken
 
-class String; def humanize; self.capitalize; end; end
+configure :production do
+  ::Logger.class_eval { alias :write :'<<' }
+  access_log = ::File.join(::File.dirname(::File.expand_path(__FILE__)),'log','access.log')
+  access_logger = ::Logger.new(access_log)
+  error_logger = ::File.new(::File.join(::File.dirname(::File.expand_path(__FILE__)),'log','error.log'),"a+")
+  error_logger.sync = true
+  use ::Rack::CommonLogger, access_logger
+end
 
 helpers do
   def error_for code
@@ -225,6 +234,8 @@ before do
     body = request.body.read
     params.merge!(JSON.parse(body).transform_keys(&:to_sym)) if body.length > 0
   end
+
+  env["rack.errors"] = error_logger if settings.production?
 end
 
 class User
