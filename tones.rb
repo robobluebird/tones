@@ -19,11 +19,11 @@ use Rack::Protection::RemoteToken
 
 configure :production do
   ::Logger.class_eval { alias :write :'<<' }
-  access_log = ::File.join(::File.dirname(::File.expand_path(__FILE__)),'log','access.log')
-  access_logger = ::Logger.new(access_log)
-  error_logger = ::File.new(::File.join(::File.dirname(::File.expand_path(__FILE__)),'log','error.log'),"a+")
-  error_logger.sync = true
-  use ::Rack::CommonLogger, access_logger
+  @access_log = ::File.join(::File.dirname(::File.expand_path(__FILE__)),'log','access.log')
+  @access_logger = ::Logger.new(@access_log)
+  @error_logger = ::File.new(::File.join(::File.dirname(::File.expand_path(__FILE__)),'log','error.log'),"a+")
+  @error_logger.sync = true
+  use ::Rack::CommonLogger, @access_logger
 end
 
 helpers do
@@ -61,7 +61,7 @@ helpers do
 
   def db
     @db ||= begin
-      db = SQLite3::Database.new "ql7.db"
+      db = SQLite3::Database.new "ql.db"
 
       db.execute_batch <<-SQL
         create table if not exists looks (
@@ -235,7 +235,7 @@ before do
     params.merge!(JSON.parse(body).transform_keys(&:to_sym)) if body.length > 0
   end
 
-  env["rack.errors"] = error_logger if settings.production?
+  env["rack.errors"] = @error_logger if settings.production?
 end
 
 class User
