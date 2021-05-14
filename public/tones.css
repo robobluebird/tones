@@ -490,7 +490,6 @@ ol {
 
 .bpmAndSuch label, .bpmAndSuch input, .bpmAndSuch button, .bpmAndSuch select {
   margin: 0 0.2em;
-  font-size: 0.8em;
 }
 
 .bpmAndSuch .dupPhrase, .bpmAndSuch .pasteGrid {
@@ -552,7 +551,6 @@ ol {
 }
 
 .gridContainer label, .gridContainer select, .gridContainer button {
-  font-size: 0.8em;
 }
 
 .delete, .delPhrase {

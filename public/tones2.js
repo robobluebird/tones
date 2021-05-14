@@ -1103,7 +1103,7 @@ const init = () => {
       generateSound(null, true, false)
     }
 
-    const newFile = URL.createObjectURL(bufferToWave(buffer, buffer.length))
+    const newFile = window.URL.createObjectURL(bufferToWave(buffer, buffer.length))
     e.target.href = newFile
     e.target.download = `${name || "quickloop"}.wav`
   }

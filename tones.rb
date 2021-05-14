@@ -4,6 +4,7 @@ require 'sinatra'
 require 'sqlite3'
 require 'sysrandom'
 require 'time'
+require './sound'
 
 include BCrypt
 
@@ -548,6 +549,9 @@ end
 get '/' do
   @tunes = tunes_with_users_and_like_counts
 
+  t = PTune.new @tunes.first.rep
+  t.sound!
+
   erb :tunes
 end
 
@@ -678,6 +682,36 @@ get '/tunes/:tune_id' do
   @remix_id = get_remix_id(@tune.id, current_user.id) if current_user
 
   erb :tune, layout: :tune_layout
+end
+
+get '/tunes/:tune_id/wav' do
+  @tune = get_tune params[:tune_id]
+
+  halt(404) unless @tune
+
+  pt = PTune.new @tune.rep
+
+  tempfile = pt.wav
+
+  send_file tempfile.path,
+    disposition: 'attachment',
+    filename: "#{@tune.name}.wav",
+    type: 'audio/wav'
+end
+
+post '/wav' do
+  if params[:rep]
+    pt = PTune.new params[:rep]
+
+    tempfile = pt.wav
+
+    send_file tempfile.path,
+      disposition: 'attachment',
+      filename: "#{pt.name}.wav",
+      type: 'audio/wav'
+  else
+    500
+  end
 end
 
 post '/tunes' do
