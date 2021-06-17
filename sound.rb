@@ -1,4 +1,3 @@
-require 'uri'
 require 'wavefile'
 
 module Sound
@@ -65,7 +64,7 @@ class WaveSample
   end
 
   def square index
-    index <= (@samples_per_wave / 2 ? 1.0 : -1.0) * (@multiplier || 0.3)
+    (index <= @samples_per_wave / 2 ? 1.0 : -1.0) * (@multiplier || 0.3)
   end
 
   def noise index
@@ -81,13 +80,13 @@ class WaveSample
     m = @multiplier || 1.0
 
     if index <= half
-      if index < quarter
+      if index <= quarter
         index * ramp * m
       else
         (half - index) * ramp * m
       end
     else
-      if index < half + quarter
+      if index <= half + quarter
         -((index - half) * ramp) * m
       else
         -((@samples_per_wave - index) * ramp) * m
@@ -105,6 +104,10 @@ class Drums
     @drums[note][index]
   end
 
+  def kick_length note
+    @drums[note].length
+  end
+
   def generate!
     base = 100
 
@@ -115,33 +118,22 @@ class Drums
 
   def sine_drum base_frequency
     changes = 10
-    sample_count = 22050 * 0.1 # for no particular reason
-    interval = sample_count / changes
     a = []
-    j = i = 0
 
-    while i < changes
+    changes.times do |i|
       calc = 1 - (i / changes.to_f)
       freq = base_frequency * calc
-      samples_per_wave = 22050 / freq
-      waves_that_will_fit = interval / samples_per_wave
+      samples_per_wave = (22050 / freq).floor
 
-      k = 0
-      while k < waves_that_will_fit
+      5.times do |j|
         b = []
-        n = 0
 
-        while n < samples_per_wave
-          b[n] = WaveSample.new(1, samples_per_wave, calc).sample n
-          n += 1
+        samples_per_wave.times do |k|
+          b[k] = WaveSample.new(1, samples_per_wave, calc).sample(k)
         end
-
-        k += 1
 
         a = a + b
       end
-
-      i += 1
     end
 
     a
@@ -155,7 +147,7 @@ class Phrase
   include Sound
 
   def initialize
-    @grids = [].fill(nil, 0..15)
+    @grids = []
   end
 
   def beats_per_measure
@@ -213,9 +205,11 @@ class Phrase
 
             carry_over = 0
 
-            while local_index + length_offset < sub_buffer_size || !wave_index.zero?
-              left_value = (left_temp ? left_temp : left_channel)[buffer_pointer + local_index]
-              right_value = (right_temp ? right_temp : right_channel)[buffer_pointer + local_index]
+            while local_index + length_offset < sub_buffer_size ||
+                  (grid.drum? && local_index < drums.kick_length(note)) ||
+                  !wave_index.zero?
+              left_value = (left_temp ? left_temp : left_channel)[buffer_pointer + local_index] || 0.0
+              right_value = (right_temp ? right_temp : right_channel)[buffer_pointer + local_index] || 0.0
 
               if grid.drum?
                 left_sample = right_sample = drums.kick_sample(note, local_index) || 0.0
@@ -325,6 +319,25 @@ class Grid
     @steps = [].fill nil, 0..15
   end
 
+  def tone_class
+    case @tone
+    when 0
+      'red'
+    when 1
+      'blue'
+    when 2
+      'green'
+    when 3
+      'orange'
+    when 4
+      'purple'
+    when 5
+      'gold'
+    else
+      'black'
+    end
+  end
+
   def reverb?
     @reverb > 0
   end
@@ -402,22 +415,46 @@ class Grid
 end
 
 class PTune
-  attr_reader :name, :rep, :buffers, :sequence, :sound
+  attr_reader :tune, :buffers, :sequence, :sound, :phrases, :name
+
   include Sound
 
-  def initialize rep
-    @rep = rep
+  def initialize tune, rep_only = nil
+    @tune = tune
+    @rep = rep_only
     @phrases = parse!
+  end
+
+  def ideal_square
+    total = @phrases.reduce(0) do |acc, curr|
+      acc + curr.grids.length
+    end
+      
+    ideal_square = 1
+  
+    while (ideal_square ** 2 < total) do
+      ideal_square += 1
+    end
+
+    ideal_square
+  end
+
+  def ideal_grid_width
+    "#{1.0 / ideal_square * 100}%"
+  end
+
+  def rep
+    @tune ? @tune.rep : @rep
   end
 
   def parse!
     parsed = {}
-    phrases = @rep.split '|'
+    phrases = rep.split '|'
 
     @name = CGI.unescape phrases.shift
     @sequence = phrases.shift.scan(/.{1,2}/).map { |h| h.to_i 16 }
     
-    phrases.map do |phrase, p_index|
+    phrases.map do |phrase|
       p = Phrase.new
 
       patterns = phrase.split ';'
@@ -470,19 +507,40 @@ class PTune
     offset = 0
 
     tune_buffer_length = @sequence.reduce(0) do |acc, seq_num|
-      acc + @phrases.find { |p| p.id == seq_num }.real_buffer_size
+      acc + @phrases.find { |p| p.id == seq_num }.buffer_size
     end
 
     left_channel = Array.new tune_buffer_length, 0.0
     right_channel = Array.new tune_buffer_length, 0.0
 
-    @sequence.each_with_index do |seq_num, index|
+    @sequence.each do |seq_num|
       phrase = @phrases.find { |p| p.id == seq_num }
       phrase.buffer.each_with_index do |sample, index|
-        left_channel[offset + index] = sample[0]
-        right_channel[offset + index] = sample[1]
+        break if offset + index >= tune_buffer_length
+
+        l = left_channel[offset + index]
+        r = right_channel[offset + index]
+
+        l += sample[0]
+        r += sample[1]
+
+        if l > 1.0
+          l = 1.0
+        elsif l < -1.0
+          l = -1.0
+        end
+
+        if r > 1.0
+          r = 1.0
+        elsif r < -1.0
+          r = -1.0
+        end
+
+        left_channel[offset + index] = l
+        right_channel[offset + index] = r
       end
-      offset += phrase.real_buffer_size
+
+      offset += phrase.buffer_size
     end
 
     @sound = left_channel.zip right_channel

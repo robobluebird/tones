@@ -31,8 +31,8 @@
   <% if @tunes.empty? %>
     <div class="tune">nothing to show!</div>
   <% end %>
-  <% @tunes.each do |tune| %>
-    <%= erb :mini, locals: {tune: tune} %>
+  <% @ptunes.each do |ptune| %>
+    <%= erb :mini, locals: {ptune: ptune} %>
   <% end %>
 </div>
 <div class="paging bottom">

@@ -409,6 +409,7 @@ li.comment:not(:last-child) {
 }
 
 .tuneGrid {
+  font-size: 0;
   position: relative;
   cursor: pointer;
   width: 100%;
@@ -840,6 +841,7 @@ body {
 }
 
 .playHint {
+  font-size: 12px;
   z-index: 1;
   background-color: black;
   color: white;
@@ -848,7 +850,6 @@ body {
   top: 0;
   right: 0;
   padding: 5px;
-  font-size: 0.8em;
 }
 
 .proto {

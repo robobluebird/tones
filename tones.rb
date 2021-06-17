@@ -548,9 +548,7 @@ end
 
 get '/' do
   @tunes = tunes_with_users_and_like_counts
-
-  t = PTune.new @tunes.first.rep
-  t.sound!
+  @ptunes = @tunes.map { |t| PTune.new(t) }
 
   erb :tunes
 end
@@ -689,7 +687,7 @@ get '/tunes/:tune_id/wav' do
 
   halt(404) unless @tune
 
-  pt = PTune.new @tune.rep
+  pt = PTune.new @tune
 
   tempfile = pt.wav
 
@@ -699,19 +697,22 @@ get '/tunes/:tune_id/wav' do
     type: 'audio/wav'
 end
 
-post '/wav' do
-  if params[:rep]
-    pt = PTune.new params[:rep]
+get '/wav' do
+  rep = request.query_string.split('&').reduce(nil) do |acc, pair|
+          key, value = pair.split '='
+          value if key && value && key == 'rep'
+        end
 
-    tempfile = pt.wav
+  halt(500) unless rep
 
-    send_file tempfile.path,
-      disposition: 'attachment',
-      filename: "#{pt.name}.wav",
-      type: 'audio/wav'
-  else
-    500
-  end
+  pt = PTune.new nil, rep
+
+  tempfile = pt.wav
+
+  send_file tempfile.path,
+    disposition: 'attachment',
+    filename: "#{pt.name}.wav",
+    type: 'audio/wav'
 end
 
 post '/tunes' do

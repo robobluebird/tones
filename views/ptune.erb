@@ -1,0 +1,11 @@
+<div data-rep="<%= ptune.tune.rep %>" style="position: relative;" class="tuneGrid" id="tuneGrid<%= ptune.tune.id %>">
+  <div id="progress<%= ptune.tune.id %>" style="display: none; border: 2px solid black; position: absolute; width: 50%; height: 5%; left: 25%; top: 45%; z-index: 2;">
+    <div style="display: none; width: 0%; height: 100%; background-color: black;"></div>
+  </div>
+  <div class="playHint" id="playHint<%= ptune.tune.id %>">tap to play</div>
+  <% ptune.phrases.each do |phrase| %>
+    <% phrase.grids.each_with_index do |grid, index| %>
+      <%= erb :grid, locals: { id: ptune.tune.id, pid: phrase.id, gid: index,  grid: grid, width: ptune.ideal_grid_width } %>
+    <% end %>
+  <% end %>
+</div>

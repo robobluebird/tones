@@ -1,0 +1,17 @@
+<div id="grid<%= id %>-<%= pid %>-<%= gid %>" style="width: <%= width %>" class="t">
+  <% (16 * 13).times do |i| %>
+    <% row = (i / 16).floor %>
+    <% cell = i % 16 %>
+    <div class="d">
+      <% if grid.steps[cell] == row %>
+        <% color = grid.tone_class %>
+      <% else %>
+        <% color = row % 2 == 0 ? (cell % 2 == 0 ? 'gray3' : 'gray2') : (cell % 2 == 0 ? 'gray2' : 'gray3') %>
+      <% end %>
+      <div class="b <%= color %>">
+        <div class="c">
+        </div>
+      </div>
+    </div>
+  <% end %>
+</div>
