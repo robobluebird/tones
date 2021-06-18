@@ -11,9 +11,58 @@
     <script src="/ptune.js"></script>
     <script src="/tones2.js"></script>
     <title>quick loops</title>
+    <script type="text/javascript">
+      let encoded = "<%= @tune.rep %>";
+      let tuneIdStr = "<%= @tune.id %>";
+      let tuneUserIdStr = "<%= @tune.user_id %>";
+      let userIdStr = "<%= current_user ? current_user.id : nil %>";
+      let forkIdStr = "<%= @fork_id %>";
+      let forkRepStr = "<%= @fork_rep %>";
+    </script>
   </head>
   <body>
-    <%= yield %>
+    <div id="actions">
+      <div class="innerActions">
+        <div style="flex: 0;" class="col left">
+          <h2 style="margin: 0; padding: 0;">
+            <a href="/">QL</a>
+          </h2>
+        </div>
+        <div class="col right">
+          <span class="spaceRight">
+            <a id="download" href="/wav">download</a>
+          </span>
+          <% if !current_user %>
+            <span class="spaceRight">
+              <a href="/users/new">log in</a>
+            </span>
+          <% end %>
+        </div>
+      </div>
+      <div class="nameLine">
+        <input <%= (current_user && (@tune.id.nil? || @tune.user_id == current_user.id)) ? '' : 'readonly' %> type="text" id="name" name="name" placeholder="name" />
+        <% if current_user && (@tune.id.nil? || @tune.user_id == current_user.id) %>
+          <button id="save" disabled class="action" onclick="save()">save</button>
+        <% end %>
+        <span id="saveNotice">✓</span>
+      </div>
+      <% if current_user && current_user.id != @tune.user_id && @tune.id %>
+        <div style="display: flex; justify-content: center; padding-top: 0.5em">
+          <% if @remix_id %>
+            <span style="font-size: 0.8em;">You remixed this tune already, see your remix <a href="/tunes/<%= @remix_id %>">here!</a></span>
+          <% else %>
+            <form method="POST" action="/tunes/<%= @tune.id %>/remix">
+              <input type="hidden" id="rep" name="rep" value="<%= @tune.rep %>" />
+              <input type="hidden" name="authenticity_token" value="<%= env['rack.session'][:csrf] %>" />
+              <input type="submit" value="remix" />
+            </form>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+    <div id="mainq">
+      <%= yield %>
+    </div>
   </body>
   <script type="text/javascript">
     init()
